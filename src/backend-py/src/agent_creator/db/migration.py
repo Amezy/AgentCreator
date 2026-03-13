@@ -184,6 +184,75 @@ async def _migrate_mcp_connections_v2(db: aiosqlite.Connection) -> None:
     logger.info("mcp_connections table rebuilt for v2 (stdio/sse support).")
 
 
+async def _seed_skill_templates(db: aiosqlite.Connection):
+    """Insert default skill templates if table is empty."""
+    cursor = await db.execute("SELECT COUNT(*) FROM skill_templates")
+    row = await cursor.fetchone()
+    if row[0] > 0:
+        return  # Already seeded
+
+    templates = [
+        {
+            "id": "tpl_blank",
+            "name": "空白技能",
+            "description": "从零开始创建技能",
+            "icon": "📝",
+            "category": "general",
+            "default_tools": "[]",
+            "default_instructions": "# {技能名称}\n\n<!-- 简要说明这个技能的目标和适用场景 -->\n\n## 你的角色\n<!-- 定义 AI 在执行此技能时扮演的角色 -->\n\n## 执行流程\n<!-- 按顺序列出执行步骤 -->\n1. \n2. \n3. \n\n## 输出格式\n<!-- 定义输出的结构和格式要求 -->\n\n## 约束与注意事项\n<!-- 可选：限制条件、边界情况 -->\n",
+            "sort_order": 0,
+        },
+        {
+            "id": "tpl_code_review",
+            "name": "代码审查",
+            "description": "审查代码变更、规范检查",
+            "icon": "🔍",
+            "category": "engineering",
+            "default_tools": '["read", "grep", "bash"]',
+            "default_instructions": "# 代码审查\n\n审查代码变更，确保代码质量、规范一致性和潜在问题的及时发现。\n\n## 你的角色\n你是一位资深代码审查员，负责对代码变更进行全面审查。\n\n## 执行流程\n1. 阅读变更的文件列表，了解变更范围\n2. 逐文件审查代码逻辑、命名规范、错误处理\n3. 检查是否存在安全隐患（注入、XSS、敏感信息泄露）\n4. 验证测试覆盖是否充分\n5. 生成审查报告\n\n## 审查维度\n- **正确性**: 逻辑是否正确，边界条件是否处理\n- **安全性**: 是否存在 OWASP Top 10 风险\n- **可维护性**: 命名、结构、注释是否清晰\n- **性能**: 是否存在明显性能问题\n\n## 输出格式\n```markdown\n## 审查结果\n- 严重问题: N 个\n- 建议改进: N 个\n- 通过: ✅/❌\n\n### 问题列表\n1. [严重/建议] 文件:行号 — 描述\n```\n\n## 约束\n- 不修改代码，只提供审查意见\n- 每个问题必须给出具体文件和行号\n",
+            "sort_order": 1,
+        },
+        {
+            "id": "tpl_data_analysis",
+            "name": "数据分析",
+            "description": "分析数据、生成报告",
+            "icon": "📊",
+            "category": "general",
+            "default_tools": '["read", "bash", "webfetch"]',
+            "default_instructions": "# 数据分析\n\n对数据进行分析处理，生成可视化报告和洞察。\n\n## 你的角色\n你是一位数据分析师，负责从数据中提取有价值的洞察。\n\n## 执行流程\n1. 了解数据源和分析目标\n2. 读取并清洗数据\n3. 进行统计分析和趋势识别\n4. 生成分析报告和建议\n\n## 输出格式\n```markdown\n## 分析报告\n### 数据概览\n- 数据量: \n- 时间范围: \n\n### 关键发现\n1. \n2. \n\n### 建议\n1. \n```\n\n## 约束\n- 数据分析结论必须有数据支撑\n- 避免主观臆断\n",
+            "sort_order": 2,
+        },
+        {
+            "id": "tpl_doc_writing",
+            "name": "文档撰写",
+            "description": "撰写技术文档、用户手册",
+            "icon": "✍️",
+            "category": "general",
+            "default_tools": '["read", "write", "websearch"]',
+            "default_instructions": "# 文档撰写\n\n撰写结构清晰、内容准确的技术文档或用户手册。\n\n## 你的角色\n你是一位技术文档工程师，负责编写易于理解的技术文档。\n\n## 执行流程\n1. 确定文档类型和目标读者\n2. 阅读相关代码或系统了解功能\n3. 编写文档大纲\n4. 逐章节填充内容\n5. 检查准确性和可读性\n\n## 输出格式\n使用 Markdown 格式，包含：\n- 标题和目录\n- 概述和前置条件\n- 详细步骤或说明\n- 示例代码或截图说明\n- FAQ 或常见问题\n\n## 约束\n- 语言简洁，避免冗余\n- 步骤必须可执行、可验证\n- 示例必须真实可运行\n",
+            "sort_order": 3,
+        },
+        {
+            "id": "tpl_client_consult",
+            "name": "客户咨询",
+            "description": "处理客户问题、生成解答",
+            "icon": "🎯",
+            "category": "consulting",
+            "default_tools": '["websearch", "webfetch"]',
+            "default_instructions": "# 客户咨询\n\n处理客户咨询问题，提供专业、准确的解答和建议。\n\n## 你的角色\n你是一位专业顾问，负责解答客户的咨询问题。\n\n## 执行流程\n1. 理解客户问题的核心诉求\n2. 搜索相关信息和最佳实践\n3. 组织解答内容\n4. 提供可操作的建议\n\n## 输出格式\n```markdown\n## 咨询回复\n### 问题理解\n客户的核心需求是...\n\n### 解答\n...\n\n### 建议方案\n1. 短期: \n2. 长期: \n\n### 参考资料\n- \n```\n\n## 约束\n- 回答必须客观专业\n- 超出能力范围的问题需明确说明\n- 建议必须具有可操作性\n",
+            "sort_order": 4,
+        },
+    ]
+
+    for tpl in templates:
+        await db.execute(
+            """INSERT INTO skill_templates (id, name, description, icon, category, default_tools, default_instructions, sort_order)
+               VALUES (:id, :name, :description, :icon, :category, :default_tools, :default_instructions, :sort_order)""",
+            tpl,
+        )
+    await db.commit()
+
+
 async def run_migrations(db: aiosqlite.Connection) -> None:
     """Run all pending migrations.
 
@@ -262,5 +331,8 @@ async def run_migrations(db: aiosqlite.Connection) -> None:
             logger.info("seed.sql applied (first run).")
         else:
             logger.debug("Seed data already present, skipping seed.sql.")
+
+    # Seed skill templates
+    await _seed_skill_templates(db)
 
     logger.info("Database migrations complete.")
