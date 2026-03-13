@@ -190,16 +190,6 @@ const SkillEditor: React.FC = () => {
     }
   };
 
-  const toolsByCategory = availableTools.reduce<Record<string, ToolItem[]>>((acc, t) => {
-    (acc[t.category] = acc[t.category] || []).push(t);
-    return acc;
-  }, {});
-
-  const categoryLabels: Record<string, string> = {
-    file: '文件操作', search: '搜索', execution: '执行',
-    network: '网络', task: '任务管理', interaction: '交互', other: '其他',
-  };
-
   if (loading) {
     return (
       <div className="skill-editor flex items-center justify-center">
