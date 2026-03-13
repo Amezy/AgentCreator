@@ -95,6 +95,13 @@ const SkillEditor: React.FC = () => {
     snackbarTimerRef.current = setTimeout(() => setSnackbar({ open: false, message: '' }), 3000);
   }, []);
 
+  // Cleanup snackbar timer on unmount
+  useEffect(() => {
+    return () => {
+      if (snackbarTimerRef.current) clearTimeout(snackbarTimerRef.current);
+    };
+  }, []);
+
   useEffect(() => {
     if (id) {
       setLoading(true);
@@ -265,7 +272,47 @@ const SkillEditor: React.FC = () => {
 
       {/* Body */}
       <div className="skill-editor-body">
-        {/* Left sidebar */}
+        {/* Left AI panel */}
+        <div className={`skill-editor-ai-panel ${showAiPanel ? '' : 'collapsed'}`}>
+          {showAiPanel && (
+            <AIChatPanel
+              step={aiStep}
+              currentSkill={form as unknown as Record<string, unknown>}
+              onFormUpdate={handleAIFormUpdate}
+              onToolsSuggest={handleAIToolsSuggest}
+              onInstructionsUpdate={handleAIInstructionsUpdate}
+              onStepComplete={handleAIStepComplete}
+            />
+          )}
+        </div>
+
+        {/* Center editor */}
+        <div className="skill-editor-main">
+          <div className="flex items-center justify-between px-4 py-2 border-b border-outline-variant/50">
+            <div className="flex items-center gap-2">
+              <button onClick={() => setPreviewMode(false)}
+                className={`px-3 py-1 rounded label-medium ${!previewMode ? 'bg-primary-container text-on-primary-container' : 'text-on-surface-variant hover:bg-on-surface/[0.08]'}`}>
+                编辑
+              </button>
+              <button onClick={() => setPreviewMode(true)}
+                className={`px-3 py-1 rounded label-medium ${previewMode ? 'bg-primary-container text-on-primary-container' : 'text-on-surface-variant hover:bg-on-surface/[0.08]'}`}>
+                预览
+              </button>
+            </div>
+            <span className="label-small text-on-surface-variant/50">{form.instructions.split('\n').length} 行</span>
+          </div>
+          {previewMode ? (
+            <div className="skill-instructions-preview text-on-surface"
+              dangerouslySetInnerHTML={{ __html: simpleMarkdown(form.instructions) }} />
+          ) : (
+            <textarea value={form.instructions} onChange={e => updateForm({ instructions: e.target.value })}
+              className="skill-instructions-editor"
+              placeholder={'在这里编写技能指令（Markdown 格式）...\n\n# 技能名称\n\n## 执行流程\n1. 第一步\n2. 第二步\n\n## 输出格式\n- 格式要求...'}
+              spellCheck={false} />
+          )}
+        </div>
+
+        {/* Right sidebar */}
         <div className="skill-editor-sidebar space-y-5">
           <section>
             <h4 className="label-large text-on-surface-variant mb-3">基本信息</h4>
@@ -389,46 +436,6 @@ const SkillEditor: React.FC = () => {
               </div>
             </div>
           </section>
-        </div>
-
-        {/* Center editor */}
-        <div className="skill-editor-main">
-          <div className="flex items-center justify-between px-4 py-2 border-b border-outline-variant/50">
-            <div className="flex items-center gap-2">
-              <button onClick={() => setPreviewMode(false)}
-                className={`px-3 py-1 rounded label-medium ${!previewMode ? 'bg-primary-container text-on-primary-container' : 'text-on-surface-variant hover:bg-on-surface/[0.08]'}`}>
-                编辑
-              </button>
-              <button onClick={() => setPreviewMode(true)}
-                className={`px-3 py-1 rounded label-medium ${previewMode ? 'bg-primary-container text-on-primary-container' : 'text-on-surface-variant hover:bg-on-surface/[0.08]'}`}>
-                预览
-              </button>
-            </div>
-            <span className="label-small text-on-surface-variant/50">{form.instructions.split('\n').length} 行</span>
-          </div>
-          {previewMode ? (
-            <div className="skill-instructions-preview text-on-surface"
-              dangerouslySetInnerHTML={{ __html: simpleMarkdown(form.instructions) }} />
-          ) : (
-            <textarea value={form.instructions} onChange={e => updateForm({ instructions: e.target.value })}
-              className="skill-instructions-editor"
-              placeholder={'在这里编写技能指令（Markdown 格式）...\n\n# 技能名称\n\n## 执行流程\n1. 第一步\n2. 第二步\n\n## 输出格式\n- 格式要求...'}
-              spellCheck={false} />
-          )}
-        </div>
-
-        {/* Right AI panel */}
-        <div className={`skill-editor-ai-panel ${showAiPanel ? '' : 'collapsed'}`}>
-          {showAiPanel && (
-            <AIChatPanel
-              step={aiStep}
-              currentSkill={form as unknown as Record<string, unknown>}
-              onFormUpdate={handleAIFormUpdate}
-              onToolsSuggest={handleAIToolsSuggest}
-              onInstructionsUpdate={handleAIInstructionsUpdate}
-              onStepComplete={handleAIStepComplete}
-            />
-          )}
         </div>
       </div>
 

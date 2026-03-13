@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { executionApi, type StepLogEntry } from '../../../services/agentCreatorApi';
 
+const LOG_ENTRY_TRUNCATE_CHARS = 200;
+
 interface StepInfo {
   step_number: number;
   step_label: string;
@@ -92,7 +94,7 @@ const StepLogViewer: React.FC<StepLogViewerProps> = ({ executionId, step }) => {
                 <div key={i} className="py-0.5">
                   <span className="text-gray-500">[{ts}]</span>{' '}
                   <span className="text-yellow-300">{entry.type ?? 'log'}</span>{' '}
-                  <span>{JSON.stringify(entry, null, 0).slice(0, 200)}</span>
+                  <span>{JSON.stringify(entry, null, 0).slice(0, LOG_ENTRY_TRUNCATE_CHARS)}</span>
                 </div>
               );
             })

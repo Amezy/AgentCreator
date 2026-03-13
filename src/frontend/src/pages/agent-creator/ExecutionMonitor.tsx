@@ -4,6 +4,9 @@ import { executionApi, type ExecutionInfo, type StepInfo, type ContextStatus } f
 import ContextStatusBar from './components/ContextStatusBar';
 import StepLogViewer from './components/StepLogViewer';
 
+const POLL_INTERVAL_MS = 5000;
+const POLL_BACKOFF_MS = 15000;
+
 const ExecutionMonitor: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -12,6 +15,8 @@ const ExecutionMonitor: React.FC = () => {
   const [contextStatus, setContextStatus] = useState<ContextStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [compacting, setCompacting] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const consecutiveErrorsRef = React.useRef(0);
 
   const fetchData = useCallback(async () => {
     if (!id) return;
@@ -24,8 +29,11 @@ const ExecutionMonitor: React.FC = () => {
       setExecution(execData);
       setSteps(stepsData);
       setContextStatus(ctxData);
+      setFetchError(null);
+      consecutiveErrorsRef.current = 0;
     } catch (e) {
-      console.error('Failed to fetch execution data:', e);
+      consecutiveErrorsRef.current += 1;
+      setFetchError(e instanceof Error ? e.message : '数据加载失败');
     } finally {
       setLoading(false);
     }
@@ -37,7 +45,7 @@ const ExecutionMonitor: React.FC = () => {
       if (execution?.status === 'running') {
         fetchData();
       }
-    }, 5000);
+    }, consecutiveErrorsRef.current >= 2 ? POLL_BACKOFF_MS : POLL_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [fetchData, execution?.status]);
 
@@ -109,6 +117,16 @@ const ExecutionMonitor: React.FC = () => {
             导出日志
           </button>
         </div>
+
+        {/* Error banner */}
+        {fetchError && (
+          <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between">
+            <span className="text-sm text-red-700">数据加载失败: {fetchError}</span>
+            <button onClick={fetchData} className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200">
+              重试
+            </button>
+          </div>
+        )}
 
         {/* Context Status Bar */}
         <div className="mb-6">

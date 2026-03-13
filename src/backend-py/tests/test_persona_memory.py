@@ -92,6 +92,21 @@ async def test_memory_prompt_section_empty(memory: PersonaMemory):
 
 
 @pytest.mark.asyncio
+async def test_path_traversal_rejected(memory: PersonaMemory):
+    """Path traversal attempts in filename should be rejected."""
+    await memory.add_memory_entry("p1", "target", "skill", "desc", "content")
+    # Attempt to escape with ../
+    assert not await memory.remove_memory_entry("p1", "../p2/skill_target.md")
+    # Attempt with absolute-style path
+    assert not await memory.remove_memory_entry("p1", "../../etc/passwd")
+    # Backslash variant
+    assert not await memory.remove_memory_entry("p1", "..\\p2\\skill_target.md")
+    # Original file should still exist
+    entries = await memory.get_memory_entries("p1")
+    assert len(entries) == 1
+
+
+@pytest.mark.asyncio
 async def test_personas_have_isolated_memory(memory: PersonaMemory):
     """Different personas should have separate memory spaces."""
     await memory.add_memory_entry("p1", "entry1", "skill", "p1 only", "p1 content")

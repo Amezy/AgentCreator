@@ -91,7 +91,7 @@ const Select: React.FC<{
       onChange={(e) => onChange(e.target.value)}
       className="w-full px-4 py-3 bg-transparent border border-outline rounded-xs text-on-surface body-large outline-none focus:border-primary focus:border-2 transition-colors"
     >
-      <option value="">请选择</option>
+      <option value="">全部</option>
       {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
   </div>

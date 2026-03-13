@@ -74,7 +74,14 @@ created: {time.strftime('%Y-%m-%d %H:%M:%S')}
 
     async def remove_memory_entry(self, persona_id: str, filename: str) -> bool:
         """Remove a memory entry file."""
-        filepath = self._memory_dir(persona_id) / filename
+        # Path traversal defense: reject filenames with path separators or parent refs
+        if "/" in filename or "\\" in filename or ".." in filename:
+            return False
+        mem_dir = self._memory_dir(persona_id)
+        filepath = mem_dir / filename
+        # Ensure resolved path stays within the persona's memory directory
+        if not filepath.resolve().parent == mem_dir.resolve():
+            return False
         if filepath.exists() and filepath.name not in ("MEMORY.md", "INDEX.md"):
             filepath.unlink()
             await self._update_index(persona_id)

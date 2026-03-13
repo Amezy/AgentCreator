@@ -7,7 +7,7 @@ interface ContextStatus {
   auto_compact_enabled: boolean;
   estimated_compact_at_step: number | null;
   steps_breakdown: {
-    step: number;
+    step_number: number;
     label: string;
     tokens: number;
     status: string;
@@ -20,6 +20,9 @@ interface ContextStatusBarProps {
   compacting: boolean;
 }
 
+const TOKEN_THRESHOLD_CRITICAL = 90;
+const TOKEN_THRESHOLD_WARNING = 70;
+
 const STATUS_COLORS: Record<string, string> = {
   completed: 'bg-green-400',
   running: 'bg-blue-400',
@@ -31,8 +34,8 @@ const ContextStatusBar: React.FC<ContextStatusBarProps> = ({ status, onCompact, 
   if (!status) return null;
 
   const getBarColor = (percent: number) => {
-    if (percent >= 90) return 'bg-red-500';
-    if (percent >= 70) return 'bg-yellow-500';
+    if (percent >= TOKEN_THRESHOLD_CRITICAL) return 'bg-red-500';
+    if (percent >= TOKEN_THRESHOLD_WARNING) return 'bg-yellow-500';
     return 'bg-blue-500';
   };
 
@@ -78,7 +81,7 @@ const ContextStatusBar: React.FC<ContextStatusBarProps> = ({ status, onCompact, 
         <div className="space-y-1">
           <p className="text-xs text-gray-500 mb-1">各步骤 Token 占用:</p>
           {status.steps_breakdown.map((step) => (
-            <div key={step.step} className="flex items-center gap-2 text-xs">
+            <div key={step.step_number} className="flex items-center gap-2 text-xs">
               <span className={`w-2 h-2 rounded-full ${STATUS_COLORS[step.status] ?? 'bg-gray-300'}`} />
               <span className="text-gray-600 w-20 truncate">{step.label}</span>
               <div className="flex-1 bg-gray-100 rounded h-1.5">

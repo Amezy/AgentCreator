@@ -333,3 +333,4 @@ CREATE INDEX IF NOT EXISTS idx_execution_logs_workflow ON execution_logs(workflo
 CREATE INDEX IF NOT EXISTS idx_execution_logs_persona ON execution_logs(persona_id);
 CREATE INDEX IF NOT EXISTS idx_execution_logs_status ON execution_logs(status);
 CREATE INDEX IF NOT EXISTS idx_execution_step_logs_execution ON execution_step_logs(execution_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_execution_step_logs_unique_step ON execution_step_logs(execution_id, step_number);

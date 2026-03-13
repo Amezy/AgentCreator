@@ -325,65 +325,6 @@ class ExecutionService:
             "total_steps": len(steps),
         }
 
-    async def compact_context(
-        self,
-        db: aiosqlite.Connection,
-        exec_id: str,
-    ) -> dict:
-        """Manually trigger context compaction for a running execution."""
-        execution = await self.get_execution(db, exec_id)
-        if not execution:
-            return {"error": "Execution not found"}
-
-        # TODO (SP4): Implement actual compaction
-        pre_tokens = 0
-        post_tokens = 0
-
-        execution_logger.add_compact_boundary(
-            exec_id, trigger="manual", pre_tokens=pre_tokens, post_tokens=post_tokens
-        )
-
-        return {
-            "pre_tokens": pre_tokens,
-            "post_tokens": post_tokens,
-            "freed_tokens": pre_tokens - post_tokens,
-            "trigger": "manual",
-        }
-
-    async def get_context_status(
-        self,
-        db: aiosqlite.Connection,
-        exec_id: str,
-    ) -> dict | None:
-        """Get context usage status for a running execution."""
-        execution = await self.get_execution(db, exec_id)
-        if not execution:
-            return None
-
-        steps = await self.get_steps(db, exec_id)
-
-        total_capacity = 128000  # placeholder
-        used_tokens = sum(s.get("tokens_used", 0) for s in steps)
-        usage_percent = round((used_tokens / total_capacity) * 100, 1) if total_capacity else 0
-
-        steps_breakdown = [
-            {
-                "step": s["step_number"],
-                "label": s["step_label"],
-                "tokens": s.get("tokens_used", 0),
-                "status": s["status"],
-            }
-            for s in steps
-        ]
-
-        return {
-            "total_capacity": total_capacity,
-            "used_tokens": used_tokens,
-            "usage_percent": usage_percent,
-            "auto_compact_enabled": True,
-            "estimated_compact_at_step": None,
-            "steps_breakdown": steps_breakdown,
-        }
 
 
 execution_service = ExecutionService()

@@ -407,7 +407,7 @@ export interface ContextStatus {
   auto_compact_enabled: boolean;
   estimated_compact_at_step: number | null;
   steps_breakdown: {
-    step: number;
+    step_number: number;
     label: string;
     tokens: number;
     status: string;
@@ -444,7 +444,7 @@ export const executionApi = {
 
 // ─── SSE Helpers ────────────────────────────────────
 export interface SSEEvent {
-  type: 'message' | 'form_update' | 'tools_suggest' | 'instructions_update' | 'step_complete' | 'error' | 'done';
+  type: 'message' | 'form_update' | 'tools_suggest' | 'instructions_update' | 'step_complete' | 'user_choices' | 'error' | 'done';
   content?: string;
   field?: string;
   value?: string;
@@ -454,6 +454,8 @@ export interface SSEEvent {
   next_step?: number;
   message?: string;
   code?: string;
+  question?: string;
+  choices?: { id: string; label: string }[];
 }
 
 export async function fetchSSE(
@@ -498,6 +500,16 @@ export async function fetchSSE(
           // Skip malformed events
         }
       }
+    }
+  }
+
+  // Flush remaining buffer after stream ends
+  if (buffer.startsWith('data: ')) {
+    try {
+      const event: SSEEvent = JSON.parse(buffer.slice(6));
+      onEvent(event);
+    } catch {
+      // Skip malformed trailing data
     }
   }
 }

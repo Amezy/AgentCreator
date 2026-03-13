@@ -180,7 +180,7 @@ const Select: React.FC<{
         onChange={(e) => onChange(e.target.value)}
         className="w-full h-12 px-3 bg-surface-container-lowest border border-outline-variant rounded-lg text-sm text-on-surface outline-none appearance-none cursor-pointer hover:border-outline focus:border-primary focus:border-2 transition-colors"
       >
-        <option value="">请选择</option>
+        <option value="">全部</option>
         {options.map((o) => (
           <option key={o.value} value={o.value}>{o.label}</option>
         ))}

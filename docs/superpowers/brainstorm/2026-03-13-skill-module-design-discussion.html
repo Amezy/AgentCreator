@@ -1,0 +1,1237 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>技能模块设计讨论记录 — AgentCreator</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-primary: #1d1d1f;
+      --bg-secondary: #2d2d2f;
+      --bg-tertiary: #3d3d3f;
+      --border: #424245;
+      --text-primary: #f5f5f7;
+      --text-secondary: #86868b;
+      --text-tertiary: #636366;
+      --accent: #0a84ff;
+      --accent-hover: #409cff;
+      --success: #34c759;
+      --warning: #ff9f0a;
+      --error: #ff3b30;
+      --selected-bg: rgba(10, 132, 255, 0.15);
+      --selected-border: #0a84ff;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #111113;
+      color: var(--text-primary);
+      line-height: 1.6;
+    }
+
+    /* ===== 文档级别样式 ===== */
+    .doc-header {
+      background: linear-gradient(135deg, #0a1628, #1a1a2e);
+      padding: 3rem 2rem;
+      text-align: center;
+      border-bottom: 2px solid var(--accent);
+    }
+    .doc-header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      background: linear-gradient(90deg, #4fc3f7, #0a84ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .doc-header .doc-meta {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+    }
+
+    .doc-toc {
+      max-width: 900px;
+      margin: 2rem auto;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem 2rem;
+    }
+    .doc-toc h2 {
+      font-size: 1.1rem;
+      color: var(--accent);
+      margin-bottom: 1rem;
+    }
+    .doc-toc ol {
+      list-style: none;
+      counter-reset: toc;
+    }
+    .doc-toc li {
+      counter-increment: toc;
+      padding: 0.4rem 0;
+      border-bottom: 1px solid #333;
+    }
+    .doc-toc li:last-child { border-bottom: none; }
+    .doc-toc li::before {
+      content: counter(toc) ".";
+      color: var(--accent);
+      font-weight: 600;
+      margin-right: 0.5rem;
+    }
+    .doc-toc a {
+      color: var(--text-primary);
+      text-decoration: none;
+    }
+    .doc-toc a:hover { color: var(--accent); }
+    .doc-toc .decision-tag {
+      display: inline-block;
+      background: #1b5e20;
+      color: #a5d6a7;
+      font-size: 0.7rem;
+      padding: 0.1rem 0.5rem;
+      border-radius: 4px;
+      margin-left: 0.5rem;
+    }
+    .doc-toc .pending-tag {
+      display: inline-block;
+      background: #e65100;
+      color: #ffcc80;
+      font-size: 0.7rem;
+      padding: 0.1rem 0.5rem;
+      border-radius: 4px;
+      margin-left: 0.5rem;
+    }
+
+    /* ===== 章节容器 ===== */
+    .chapter {
+      max-width: 900px;
+      margin: 3rem auto;
+      padding: 0 1rem;
+    }
+    .chapter-header {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px 12px 0 0;
+      padding: 1.5rem 2rem;
+      border-bottom: 2px solid var(--accent);
+    }
+    .chapter-header h2 {
+      font-size: 1.3rem;
+      font-weight: 700;
+    }
+    .chapter-header .chapter-meta {
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+      margin-top: 0.3rem;
+    }
+
+    /* ===== 交互记录 ===== */
+    .interaction {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-top: none;
+      padding: 1.5rem 2rem;
+    }
+    .interaction:last-child {
+      border-radius: 0 0 12px 12px;
+    }
+    .interaction-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.8rem;
+    }
+    .interaction-header .role {
+      font-weight: 600;
+      font-size: 0.85rem;
+    }
+    .role-ai { color: #4fc3f7; }
+    .role-user { color: #81c784; }
+    .role-decision { color: #ffab91; }
+
+    .interaction-content {
+      color: #ccc;
+      font-size: 0.9rem;
+      line-height: 1.7;
+    }
+    .interaction-content ul {
+      margin-left: 1.5rem;
+      margin-top: 0.3rem;
+    }
+
+    .decision-box {
+      background: rgba(27, 94, 32, 0.2);
+      border: 1px solid #4caf50;
+      border-radius: 8px;
+      padding: 0.8rem 1rem;
+      margin-top: 0.8rem;
+    }
+    .decision-box .decision-label {
+      color: #a5d6a7;
+      font-weight: 600;
+      font-size: 0.8rem;
+      margin-bottom: 0.3rem;
+    }
+    .decision-box .decision-text {
+      color: #c8e6c9;
+      font-size: 0.85rem;
+    }
+
+    /* ===== VC 内容嵌入 ===== */
+    .vc-embed {
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-top: none;
+      padding: 0;
+    }
+    .vc-embed-header {
+      background: var(--bg-tertiary);
+      padding: 0.5rem 1rem;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .vc-embed-body {
+      padding: 2rem;
+    }
+
+    /* ===== VC 内容样式（从 frame-template.html 复制） ===== */
+    .vc-embed-body h2 { font-size: 1.5rem; font-weight: 600; margin-bottom: 0.5rem; }
+    .vc-embed-body h3 { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.25rem; }
+    .vc-embed-body .subtitle { color: var(--text-secondary); margin-bottom: 1.5rem; }
+    .vc-embed-body .section { margin-bottom: 2rem; }
+
+    .vc-embed-body .options { display: flex; flex-direction: column; gap: 0.75rem; }
+    .vc-embed-body .option {
+      background: var(--bg-secondary);
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 1rem;
+    }
+    .vc-embed-body .option.selected { background: var(--selected-bg); border-color: var(--selected-border); }
+    .vc-embed-body .option .letter {
+      background: var(--bg-tertiary);
+      color: var(--text-secondary);
+      width: 1.75rem; height: 1.75rem;
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 600; font-size: 0.85rem; flex-shrink: 0;
+    }
+    .vc-embed-body .option.selected .letter { background: var(--accent); color: white; }
+    .vc-embed-body .option .content { flex: 1; }
+    .vc-embed-body .option .content h3 { font-size: 0.95rem; margin-bottom: 0.15rem; }
+    .vc-embed-body .option .content p { color: var(--text-secondary); font-size: 0.85rem; margin: 0; }
+
+    .vc-embed-body .mockup {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 1.5rem;
+    }
+    .vc-embed-body .mockup-header {
+      background: var(--bg-tertiary);
+      padding: 0.5rem 1rem;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      border-bottom: 1px solid var(--border);
+    }
+    .vc-embed-body .mockup-body { padding: 1.5rem; }
+
+    .vc-embed-body .split { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+    @media (max-width: 700px) { .vc-embed-body .split { grid-template-columns: 1fr; } }
+
+    .vc-embed-body .pros-cons { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1rem 0; }
+    .vc-embed-body .pros, .vc-embed-body .cons { background: var(--bg-secondary); border-radius: 8px; padding: 1rem; }
+    .vc-embed-body .pros h4 { color: var(--success); font-size: 0.85rem; margin-bottom: 0.5rem; }
+    .vc-embed-body .cons h4 { color: var(--error); font-size: 0.85rem; margin-bottom: 0.5rem; }
+    .vc-embed-body .pros ul, .vc-embed-body .cons ul { margin-left: 1.25rem; font-size: 0.85rem; color: var(--text-secondary); }
+
+    /* ===== 分隔线 ===== */
+    .chapter-divider {
+      max-width: 900px;
+      margin: 0 auto;
+      border: none;
+      border-top: 1px solid #333;
+    }
+
+    /* ===== 页脚 ===== */
+    .doc-footer {
+      max-width: 900px;
+      margin: 3rem auto;
+      padding: 2rem;
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+      border-top: 1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+
+<!-- ==================== 文档头 ==================== -->
+<div class="doc-header">
+  <h1>AgentCreator 技能模块设计讨论记录</h1>
+  <div class="doc-meta">
+    日期: 2026-03-13 | 参与者: 用户 + Claude (Opus 4.6) | 工具: Superpowers Visual Companion<br>
+    本文档记录了技能模块从需求澄清到架构设计的完整讨论过程，包含所有可视化设计稿和决策记录。
+  </div>
+</div>
+
+<!-- ==================== 目录 ==================== -->
+<div class="doc-toc">
+  <h2>目录</h2>
+  <ol>
+    <li><a href="#ch1">对话模式的交互形态（三选一）</a><span class="decision-tag">已决策: 方案 B</span></li>
+    <li><a href="#ch2">手动模式的冷启动优化</a><span class="decision-tag">已确认</span></li>
+    <li><a href="#ch3">工作流编排模型对比</a><span class="decision-tag">已决策: CC 式编排</span></li>
+    <li><a href="#ch4">上下文管理四层防线</a><span class="decision-tag">已确认</span></li>
+    <li><a href="#ch5">上下文传导精度 + 手动 Compact</a><span class="decision-tag">已确认</span></li>
+    <li><a href="#ch6">压缩持久化机制（CC 调研）</a><span class="decision-tag">已确认</span></li>
+    <li><a href="#ch7">完整设计方案总览</a><span class="decision-tag">已确认</span></li>
+  </ol>
+</div>
+
+<!-- ==================== 第1章 ==================== -->
+<div class="chapter" id="ch1">
+  <div class="chapter-header">
+    <h2>1. 对话模式的交互形态</h2>
+    <div class="chapter-meta">讨论主题: AI 辅助创建技能时，对话区和编辑区如何布局？</div>
+  </div>
+
+  <div class="interaction">
+    <div class="interaction-header">
+      <span class="role role-ai">Claude 讲解</span>
+    </div>
+    <div class="interaction-content">
+      用户希望技能创建支持"对话模式"——通过与 AI 对话来逐步生成技能定义。核心问题是：对话区域和技能编辑区域如何布局？我提出了三种方案供选择。
+    </div>
+  </div>
+
+  <div class="vc-embed">
+    <div class="vc-embed-header">
+      <span>Visual Companion: conversation-mode-layout.html</span>
+      <span>交互式选项页</span>
+    </div>
+    <div class="vc-embed-body">
+      <h2>对话模式的交互形态</h2>
+      <p class="subtitle">AI 辅助创建技能时，对话区和编辑区如何布局？</p>
+
+      <div class="options">
+        <div class="option" data-choice="a">
+          <div class="letter">A</div>
+          <div class="content">
+            <h3>全屏对话 → 确认后跳转编辑器</h3>
+            <p>进入对话模式后，先是纯聊天界面（类似 ChatGPT），用户和 AI 多轮对话。AI 生成完整技能定义后，用户确认，系统自动创建技能并跳转到手动编辑器做微调。</p>
+            <div class="pros-cons">
+              <div class="pros"><h4>优点</h4><ul><li>对话体验专注，不分心</li><li>复用现有 SkillEditor 做后续编辑</li><li>实现复杂度低</li></ul></div>
+              <div class="cons"><h4>缺点</h4><ul><li>对话和编辑是割裂的两步</li><li>用户看不到实时生成效果</li></ul></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="option selected" data-choice="b">
+          <div class="letter">B</div>
+          <div class="content">
+            <h3>左聊天 + 右实时预览（分屏）</h3>
+            <p>保持当前 SkillEditor 的三栏布局，但把右侧 AI 面板改为真正的聊天面板。用户在右侧和 AI 对话，AI 的生成结果实时同步到左侧表单和中间编辑器。用户可以随时在对话和手动编辑之间切换。</p>
+            <div class="pros-cons">
+              <div class="pros"><h4>优点</h4><ul><li>对话和编辑无缝衔接</li><li>实时看到 AI 生成结果</li><li>用户可随时手动微调</li><li>沿用现有布局框架</li></ul></div>
+              <div class="cons"><h4>缺点</h4><ul><li>三栏可能显得拥挤</li><li>AI 同步表单字段逻辑复杂</li></ul></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="option" data-choice="c">
+          <div class="letter">C</div>
+          <div class="content">
+            <h3>向导式对话（Step-by-step）</h3>
+            <p>AI 以步骤引导方式和用户交互：第1步确认名称和描述 → 第2步选择工具和MCP → 第3步生成指令内容 → 第4步预览确认。每步都有 AI 建议，用户可接受或修改。最终汇总生成完整技能。</p>
+            <div class="pros-cons">
+              <div class="pros"><h4>优点</h4><ul><li>结构清晰，新手友好</li><li>每步都有 AI 上下文</li><li>不容易遗漏字段</li></ul></div>
+              <div class="cons"><h4>缺点</h4><ul><li>老手会觉得步骤繁琐</li><li>不如自由对话灵活</li><li>与现有编辑器差异大</li></ul></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p class="subtitle" style="margin-top: 2rem;">我的推荐：<strong>方案 B</strong>（左聊天 + 右实时预览）— 沿用现有三栏结构，改造成本低，且对话和编辑无缝切换最符合"混合模式"理念。</p>
+    </div>
+  </div>
+
+  <div class="interaction">
+    <div class="interaction-header">
+      <span class="role role-user">用户反馈</span>
+    </div>
+    <div class="interaction-content">
+      "B选择非常好，我需要实时看到技能的编写和可控。"
+    </div>
+    <div class="decision-box">
+      <div class="decision-label">决策</div>
+      <div class="decision-text">采用方案 B — 三栏布局（左配置面板 + 中 Markdown 编辑器 + 右对话面板），对话结果实时同步到编辑器，用户可随时手动修改。</div>
+    </div>
+  </div>
+
+  <div class="interaction">
+    <div class="interaction-header">
+      <span class="role role-ai">Claude 追问：AI 引导策略</span>
+    </div>
+    <div class="interaction-content">
+      在确认三栏布局后，讨论了 AI 对话的引导策略：是"智能路由"（AI 自动判断需求复杂度）还是"逐字段引导填充"（固定 3 步流程）？
+    </div>
+  </div>
+
+  <div class="interaction">
+    <div class="interaction-header">
+      <span class="role role-user">用户反馈</span>
+    </div>
+    <div class="interaction-content">
+      "逐字段填充是否好一些？我担心智能判断没有那么智能路由，无法判断简单需求和复杂需求。"
+    </div>
+    <div class="decision-box">
+      <div class="decision-label">决策</div>
+      <div class="decision-text">采用逐字段引导填充策略（3步）：Step 1 基本信息 → Step 2 工具与资源 → Step 3 技能指令内容。每步 AI 给出建议，用户确认或修改。</div>
+    </div>
+  </div>
+
+  <div class="interaction">
+    <div class="interaction-header">
+      <span class="role role-ai">Claude 追问：工具展示语言</span>
+    </div>
+    <div class="interaction-content">
+      讨论了 Step 2 中工具选择区域的展示方式。最初用技术 ID（read, grep, bash），用户指出需要面向非技术人员。
+    </div>
+  </div>
+
+  <div class="interaction">
+    <div class="interaction-header">
+      <span class="role role-user">用户反馈</span>
+    </div>
+    <div class="interaction-content">
+      "能否给出一些通俗易懂的引导？因为我们使用这个工具的人，不一定是软件开发人员。也会有不懂技术的咨询、市场、人力资源等人员。"
+    </div>
+    <div class="decision-box">
+      <div class="decision-label">决策</div>
+      <div class="decision-text">工具展示使用场景化语言："📖 阅读文件" 而非 "read"，"🔎 搜索内容" 而非 "grep"，"⚡ 运行命令" 而非 "bash"。</div>
+    </div>
+  </div>
+</div>
+
+<hr class="chapter-divider">
+
+<!-- ==================== 第2章 ==================== -->
+<div class="chapter" id="ch2">
+  <div class="chapter-header">
+    <h2>2. 手动模式的冷启动优化</h2>
+    <div class="chapter-meta">讨论主题: 解决手动编写技能时"无从下手"的问题</div>
+  </div>
+
+  <div class="interaction">
+    <div class="interaction-header">
+      <span class="role role-ai">Claude 讲解</span>
+    </div>
+    <div class="interaction-content">
+      当前手动模式打开编辑器后是空白页面，对新用户不够友好。我提出了三个改进方案，并标注了优先级。
+    </div>
+  </div>
+
+  <div class="vc-embed">
+    <div class="vc-embed-header">
+      <span>Visual Companion: manual-mode-improvements.html</span>
+      <span>三项改进对比</span>
+    </div>
+    <div class="vc-embed-body">
+      <h2>手动模式的"冷启动"改进方案</h2>
+      <p class="subtitle">解决"无从下手"问题的三个关键改进</p>
+
+      <div class="section">
+        <h3>改进 1：模板选择作为起点</h3>
+        <p>进入手动模式时，不再直接打开空白编辑器，而是先选一个起点：</p>
+        <div class="mockup">
+          <div class="mockup-header">创建技能 — 选择起点</div>
+          <div class="mockup-body" style="padding: 2rem; background: #1a1a2e;">
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
+              <div style="background: #16213e; border: 1px solid #0f3460; border-radius: 12px; padding: 1.5rem; cursor: pointer;">
+                <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">📝</div>
+                <div style="color: #e0e0e0; font-weight: 600; margin-bottom: 0.3rem;">空白技能</div>
+                <div style="color: #888; font-size: 0.85rem;">从零开始，适合有经验的用户</div>
+              </div>
+              <div style="background: #16213e; border: 2px solid #4fc3f7; border-radius: 12px; padding: 1.5rem; cursor: pointer;">
+                <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">🔍</div>
+                <div style="color: #e0e0e0; font-weight: 600; margin-bottom: 0.3rem;">代码审查</div>
+                <div style="color: #888; font-size: 0.85rem;">审查代码变更、规范检查</div>
+              </div>
+              <div style="background: #16213e; border: 1px solid #0f3460; border-radius: 12px; padding: 1.5rem; cursor: pointer;">
+                <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">📊</div>
+                <div style="color: #e0e0e0; font-weight: 600; margin-bottom: 0.3rem;">数据分析</div>
+                <div style="color: #888; font-size: 0.85rem;">分析数据、生成报告</div>
+              </div>
+              <div style="background: #16213e; border: 1px solid #0f3460; border-radius: 12px; padding: 1.5rem; cursor: pointer;">
+                <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">✍️</div>
+                <div style="color: #e0e0e0; font-weight: 600; margin-bottom: 0.3rem;">文档撰写</div>
+                <div style="color: #888; font-size: 0.85rem;">撰写技术文档、用户手册</div>
+              </div>
+              <div style="background: #16213e; border: 1px solid #0f3460; border-radius: 12px; padding: 1.5rem; cursor: pointer;">
+                <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">🎯</div>
+                <div style="color: #e0e0e0; font-weight: 600; margin-bottom: 0.3rem;">客户咨询</div>
+                <div style="color: #888; font-size: 0.85rem;">处理客户问题、生成解答</div>
+              </div>
+              <div style="background: #16213e; border: 1px solid #0f3460; border-radius: 12px; padding: 1.5rem; cursor: pointer;">
+                <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">📋</div>
+                <div style="color: #e0e0e0; font-weight: 600; margin-bottom: 0.3rem;">更多模板...</div>
+                <div style="color: #888; font-size: 0.85rem;">浏览全部预置模板</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>改进 2：编辑器预置结构化模板</h3>
+        <p>选择模板后，编辑器不再是空的，而是预填了<strong>结构化骨架</strong>：</p>
+        <div class="split">
+          <div class="mockup">
+            <div class="mockup-header">❌ 现在（空白 + 弱提示）</div>
+            <div class="mockup-body" style="padding: 1.5rem; background: #1a1a2e; font-family: monospace; font-size: 0.85rem; color: #666;">
+              <div>在这里编写技能指令（Markdown 格式）...</div>
+              <br>
+              <div style="color: #555"># 技能名称</div>
+              <br>
+              <div style="color: #555">## 执行流程</div>
+              <div style="color: #555">1. 第一步</div>
+              <div style="color: #555">2. 第二步</div>
+            </div>
+          </div>
+          <div class="mockup">
+            <div class="mockup-header">✅ 改进后（结构化骨架 + 引导注释）</div>
+            <div class="mockup-body" style="padding: 1.5rem; background: #1a1a2e; font-family: monospace; font-size: 0.85rem;">
+              <div style="color: #4fc3f7;"># 代码审查</div>
+              <br>
+              <div style="color: #888;">&lt;!-- 简要说明这个技能的目标和适用场景 --&gt;</div>
+              <div style="color: #e0e0e0;">对代码变更进行系统性审查，确保质量和规范性。</div>
+              <br>
+              <div style="color: #4fc3f7;">## 你的角色</div>
+              <div style="color: #888;">&lt;!-- 定义 AI 在执行此技能时扮演的角色 --&gt;</div>
+              <div style="color: #e0e0e0;">你是一位资深代码审查员，关注代码质量...</div>
+              <br>
+              <div style="color: #4fc3f7;">## 执行流程</div>
+              <div style="color: #e0e0e0;">1. 阅读变更文件，了解修改范围</div>
+              <div style="color: #e0e0e0;">2. 检查代码规范和最佳实践</div>
+              <div style="color: #e0e0e0;">3. 识别潜在的安全风险</div>
+              <div style="color: #e0e0e0;">4. 生成审查报告</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>改进 3：工具区场景化语言</h3>
+        <div class="split">
+          <div class="mockup">
+            <div class="mockup-header">❌ 现在（技术术语）</div>
+            <div class="mockup-body" style="padding: 1.5rem; background: #1a1a2e; font-size: 0.85rem;">
+              <div style="color: #888; margin-bottom: 0.5rem;">预置工具 (0 已选)</div>
+              <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                <span style="background: #2a2a3e; color: #aaa; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem;">read</span>
+                <span style="background: #2a2a3e; color: #aaa; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem;">edit</span>
+                <span style="background: #2a2a3e; color: #aaa; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem;">grep</span>
+                <span style="background: #2a2a3e; color: #aaa; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem;">bash</span>
+              </div>
+            </div>
+          </div>
+          <div class="mockup">
+            <div class="mockup-header">✅ 改进后（场景化描述）</div>
+            <div class="mockup-body" style="padding: 1.5rem; background: #1a1a2e; font-size: 0.85rem;">
+              <div style="color: #888; margin-bottom: 0.5rem;">技能能力 (0 已选)</div>
+              <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                <span style="background: #2a2a3e; color: #aaa; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem;">📖 阅读文件</span>
+                <span style="background: #2a2a3e; color: #aaa; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem;">✏️ 编辑文件</span>
+                <span style="background: #2a2a3e; color: #aaa; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem;">🔎 搜索内容</span>
+                <span style="background: #2a2a3e; color: #aaa; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem;">⚡ 运行命令</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p class="subtitle" style="margin-top: 2rem;">优先级：<strong>改进 2（编辑器骨架）</strong> > <strong>改进 1（模板选择）</strong> > <strong>改进 3（工具描述）</strong></p>
+    </div>
+  </div>
+
+  <div class="interaction">
+    <div class="interaction-header">
+      <span class="role role-user">用户反馈</span>
+    </div>
+    <div class="interaction-content">
+      用户确认了三项改进方案，并补充了一个重要概念澄清："工具是工具，技能是技能。工具是技能的底层能力提供者。"指出工具区标题应保持为"绑定工具"而非"技能能力"。
+    </div>
+    <div class="decision-box">
+      <div class="decision-label">决策</div>
+      <div class="decision-text">三项改进全部采纳。工具区标题保持"绑定工具"概念，但展示内容使用场景化语言。概念层次明确：工具（原子能力）→ 技能（业务场景）→ 工作流（多技能编排）。</div>
+    </div>
+  </div>
+</div>
+
+<hr class="chapter-divider">
+
+<!-- ==================== 第3章 ==================== -->
+<div class="chapter" id="ch3">
+  <div class="chapter-header">
+    <h2>3. 工作流编排模型对比</h2>
+    <div class="chapter-meta">讨论主题: 传统工作流引擎 vs CC 式 Agent 编排</div>
+  </div>
+
+  <div class="interaction">
+    <div class="interaction-header">
+      <span class="role role-ai">Claude 讲解</span>
+    </div>
+    <div class="interaction-content">
+      在讨论"数字员工如何执行多步骤工作流"时，需要确定执行引擎的架构。传统方式是构建后端工作流引擎（节点、边、schema 定义），但这会导致大量胶水代码。Claude Code 的方式是让 LLM 自身作为编排者，上下文天然传递，无需序列化。
+    </div>
+  </div>
+
+  <div class="vc-embed">
+    <div class="vc-embed-header">
+      <span>Visual Companion: orchestration-model.html</span>
+      <span>两种编排模型对比</span>
+    </div>
+    <div class="vc-embed-body">
+      <h2>工作流编排：两种模型对比</h2>
+      <p class="subtitle">传统工作流引擎 vs CC 式 Agent 编排</p>
+
+      <div class="section">
+        <h3>传统工作流引擎（过度设计的方案）</h3>
+        <div class="mockup">
+          <div class="mockup-header">❌ 过于复杂</div>
+          <div class="mockup-body" style="padding: 2rem; background: #1a1a2e; font-family: monospace; font-size: 0.85rem;">
+            <div style="color: #e57373;">后端工作流引擎</div>
+            <div style="color: #888; margin: 0.5rem 0;">  → 读取 wf_nodes 和 wf_edges</div>
+            <div style="color: #888;">  → 按拓扑排序执行节点</div>
+            <div style="display: flex; gap: 1rem; margin: 1rem 0;">
+              <div style="flex:1; background: #2a2a3e; border: 1px solid #444; border-radius: 8px; padding: 1rem;">
+                <div style="color: #4fc3f7;">节点A: 代码审查</div>
+                <div style="color: #e57373; font-size: 0.8rem; margin-top: 0.5rem;">需要严格定义 schema / LLM 输出不一定符合 / 需要格式校验和重试</div>
+              </div>
+              <div style="color: #888; display: flex; align-items: center;">→ 序列化 →</div>
+              <div style="flex:1; background: #2a2a3e; border: 1px solid #444; border-radius: 8px; padding: 1rem;">
+                <div style="color: #4fc3f7;">节点B: 修复建议</div>
+                <div style="color: #e57373; font-size: 0.8rem; margin-top: 0.5rem;">同样的问题...</div>
+              </div>
+            </div>
+            <div style="color: #e57373; margin-top: 0.5rem;">问题：大量胶水代码、schema 定义、格式校验、重试机制</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>CC 式 Agent 编排（推荐方案）</h3>
+        <div class="mockup">
+          <div class="mockup-header">✅ 简洁高效</div>
+          <div class="mockup-body" style="padding: 2rem; background: #1a1a2e; font-family: monospace; font-size: 0.85rem;">
+            <div style="color: #81c784;">单一 LLM 会话 = 规划 + 执行 + 校验</div>
+            <div style="color: #888; margin: 0.5rem 0 1rem;">工作流定义注入系统提示词，LLM 按定义逐步执行</div>
+            <div style="background: #1b5e20; border: 1px solid #4caf50; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+              <div style="color: #a5d6a7; font-size: 0.8rem; margin-bottom: 0.5rem;">系统提示词（后端注入）</div>
+              <div style="color: #e0e0e0;">你是[员工名]，需要按以下工作流处理任务：</div>
+              <div style="color: #e0e0e0;">步骤1: 执行「代码审查」技能</div>
+              <div style="color: #e0e0e0;">步骤2: 基于审查结果执行「修复建议」技能</div>
+              <div style="color: #e0e0e0;">步骤3: 汇总生成报告</div>
+            </div>
+            <div style="color: #81c784; margin-top: 1rem;">优势：零胶水代码、无 schema、上下文天然传递、LLM 自带校验能力</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>后端的角色（轻量协调者）</h3>
+        <div class="mockup">
+          <div class="mockup-header">后端只做三件事</div>
+          <div class="mockup-body" style="padding: 2rem; background: #1a1a2e; font-size: 0.9rem;">
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
+              <div style="background: #16213e; border-radius: 8px; padding: 1.2rem; text-align: center;">
+                <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">📋</div>
+                <div style="color: #4fc3f7; font-weight: 600;">1. 组装 Prompt</div>
+                <div style="color: #888; font-size: 0.85rem; margin-top: 0.5rem;">工作流定义 + 技能指令 + 工具列表</div>
+              </div>
+              <div style="background: #16213e; border-radius: 8px; padding: 1.2rem; text-align: center;">
+                <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">🔌</div>
+                <div style="color: #4fc3f7; font-weight: 600;">2. 代理执行</div>
+                <div style="color: #888; font-size: 0.85rem; margin-top: 0.5rem;">通过 OpenCode API 创建 Agent 会话</div>
+              </div>
+              <div style="background: #16213e; border-radius: 8px; padding: 1.2rem; text-align: center;">
+                <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">📊</div>
+                <div style="color: #4fc3f7; font-weight: 600;">3. 监控记录</div>
+                <div style="color: #888; font-size: 0.85rem; margin-top: 0.5rem;">日志、token 消耗、状态更新</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="interaction">
+    <div class="interaction-header">
+      <span class="role role-user">用户反馈</span>
+    </div>
+    <div class="interaction-content">
+      用户认同 CC 式编排的简洁性，但提出了关键问题："上下文长度是有限的，也就是 CC 一直倡导自己是上下文工程的解决方案专家！那我们就需要引入并设计实现 CC 的上下文压缩功能（Context compact），否则在复杂流程下将无法获取足够的信息，导致断裂。"
+    </div>
+    <div class="decision-box">
+      <div class="decision-label">决策</div>
+      <div class="decision-text">采用 CC 式 Agent 编排。后端作为轻量协调者，不构建传统工作流引擎。同时必须引入完整的上下文管理方案。</div>
+    </div>
+  </div>
+</div>
+
+<hr class="chapter-divider">
+
+<!-- ==================== 第4章 ==================== -->
+<div class="chapter" id="ch4">
+  <div class="chapter-header">
+    <h2>4. 上下文管理四层防线</h2>
+    <div class="chapter-meta">讨论主题: 借鉴 CC 的上下文管理体系，设计我们的方案</div>
+  </div>
+
+  <div class="interaction">
+    <div class="interaction-header">
+      <span class="role role-ai">Claude 讲解</span>
+    </div>
+    <div class="interaction-content">
+      Claude Code 有一套成熟的四层上下文管理体系，从自动压缩到持久记忆。我分析了每一层对我们工作流场景的意义，并对比了两种执行方案（每步 Subagent vs 单一上下文 + Compaction）。
+    </div>
+  </div>
+
+  <div class="vc-embed">
+    <div class="vc-embed-header">
+      <span>Visual Companion: context-management.html</span>
+      <span>四层防线 + 执行方案对比</span>
+    </div>
+    <div class="vc-embed-body">
+      <h2>上下文管理：CC 的完整策略</h2>
+      <p class="subtitle">CC 如何解决"上下文不够用"问题 — 以及我们需要实现哪些</p>
+
+      <div class="section">
+        <h3>CC 的四层上下文管理体系</h3>
+        <div class="mockup">
+          <div class="mockup-header">从内到外的四道防线</div>
+          <div class="mockup-body" style="padding: 2rem; background: #1a1a2e;">
+            <div style="display: flex; flex-direction: column; gap: 1.2rem;">
+
+              <div style="background: #1b5e20; border: 1px solid #4caf50; border-radius: 10px; padding: 1.2rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <div>
+                    <div style="color: #81c784; font-weight: 700; font-size: 1.1rem;">第1层：Auto Compaction（自动压缩）</div>
+                    <div style="color: #c8e6c9; font-size: 0.85rem; margin-top: 0.3rem;">当上下文达到 ~95% 容量时自动触发</div>
+                  </div>
+                  <div style="background: #2e7d32; padding: 0.3rem 0.8rem; border-radius: 6px; color: #a5d6a7; font-size: 0.8rem;">必须实现</div>
+                </div>
+              </div>
+
+              <div style="background: #0d47a1; border: 1px solid #42a5f5; border-radius: 10px; padding: 1.2rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <div>
+                    <div style="color: #90caf9; font-weight: 700; font-size: 1.1rem;">第2层：Prune（工具输出裁剪）</div>
+                    <div style="color: #bbdefb; font-size: 0.85rem; margin-top: 0.3rem;">在压缩之前，先裁剪掉旧的工具调用输出</div>
+                  </div>
+                  <div style="background: #1565c0; padding: 0.3rem 0.8rem; border-radius: 6px; color: #90caf9; font-size: 0.8rem;">必须实现</div>
+                </div>
+              </div>
+
+              <div style="background: #4a148c; border: 1px solid #ab47bc; border-radius: 10px; padding: 1.2rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <div>
+                    <div style="color: #ce93d8; font-weight: 700; font-size: 1.1rem;">第3层：Subagent 隔离</div>
+                    <div style="color: #e1bee7; font-size: 0.85rem; margin-top: 0.3rem;">重型操作委派给子 Agent，只返回摘要结果</div>
+                  </div>
+                  <div style="background: #6a1b9a; padding: 0.3rem 0.8rem; border-radius: 6px; color: #ce93d8; font-size: 0.8rem;">推荐实现</div>
+                </div>
+              </div>
+
+              <div style="background: #bf360c; border: 1px solid #ff7043; border-radius: 10px; padding: 1.2rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <div>
+                    <div style="color: #ffab91; font-weight: 700; font-size: 1.1rem;">第4层：Persistent Memory（持久记忆）</div>
+                    <div style="color: #ffccbc; font-size: 0.85rem; margin-top: 0.3rem;">跨会话的知识沉淀，不占用上下文空间</div>
+                  </div>
+                  <div style="background: #d84315; padding: 0.3rem 0.8rem; border-radius: 6px; color: #ffab91; font-size: 0.8rem;">二期实现</div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>两种执行方案对比</h3>
+        <div class="split">
+          <div class="mockup">
+            <div class="mockup-header">方案 A：每步 Subagent（推荐）</div>
+            <div class="mockup-body" style="padding: 1.5rem; background: #1a1a2e; font-size: 0.85rem;">
+              <div style="color: #e0e0e0; line-height: 1.6;">
+                每个步骤在独立 Subagent 中执行<br>
+                只返回结构化摘要给主 Agent<br><br>
+                <span style="color: #81c784;">主上下文: ~5K/步 = 5步约 25K ✅</span><br>
+                <span style="color: #888;">子 Agent 自身也支持 auto-compaction ✅</span>
+              </div>
+            </div>
+          </div>
+          <div class="mockup">
+            <div class="mockup-header">方案 B：单一上下文 + Compaction</div>
+            <div class="mockup-body" style="padding: 1.5rem; background: #1a1a2e; font-size: 0.85rem;">
+              <div style="color: #e0e0e0; line-height: 1.6;">
+                所有步骤在同一个上下文中执行<br>
+                步骤间触发 compaction<br><br>
+                <span style="color: #ff9800;">上下文波动大，质量依赖压缩 ⚠️</span><br>
+                <span style="color: #e57373;">可能丢失关键细节 ❌</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="interaction">
+    <div class="interaction-header">
+      <span class="role role-user">用户反馈</span>
+    </div>
+    <div class="interaction-content">
+      "Subagent 方式非常好，也是主流方案。还有个问题，Subagent 产出的结果，如果和前后流程是依赖性的，那只有顺序执行吧，并且要保证如何能够不丢失上下文的传导（我看你用的是摘要，这个压缩比例一定要控制好，防止丢失精度）。另外，我们还要支持手动 compact 模式，类似于 CC 插件。"
+    </div>
+    <div class="decision-box">
+      <div class="decision-label">决策</div>
+      <div class="decision-text">采用 Subagent 隔离方案。一期实现前三层（Auto Compaction + Prune + Subagent 隔离），二期实现持久记忆。必须保证步骤间传导精度和支持手动 Compact。</div>
+    </div>
+  </div>
+</div>
+
+<hr class="chapter-divider">
+
+<!-- ==================== 第5章 ==================== -->
+<div class="chapter" id="ch5">
+  <div class="chapter-header">
+    <h2>5. 上下文传导精度 + 手动 Compact</h2>
+    <div class="chapter-meta">讨论主题: 步骤间数据如何不丢失精度传递 + 手动压缩 UI</div>
+  </div>
+
+  <div class="interaction">
+    <div class="interaction-header">
+      <span class="role role-ai">Claude 讲解</span>
+    </div>
+    <div class="interaction-content">
+      针对用户提出的"传导精度"问题，我设计了结构化摘要模板机制：每个步骤的 Subagent 输出必须遵循固定 schema（key_findings + artifacts + context_for_next），其中 artifacts（完整产物）不做任何压缩，只有过程信息（工具调用原始输出）被丢弃。同时设计了监控面板中的手动 Compact 交互。
+    </div>
+  </div>
+
+  <div class="vc-embed">
+    <div class="vc-embed-header">
+      <span>Visual Companion: context-control-ui.html</span>
+      <span>传导机制 + 监控面板</span>
+    </div>
+    <div class="vc-embed-body">
+      <h2>上下文管理：传导精度 + 手动 Compact</h2>
+      <p class="subtitle">确保工作流步骤间不丢失关键信息，并支持手动压缩</p>
+
+      <div class="section">
+        <h3>顺序执行 + 结构化传导</h3>
+        <div class="mockup">
+          <div class="mockup-header">工作流执行：依赖步骤顺序传导</div>
+          <div class="mockup-body" style="padding: 2rem; background: #1a1a2e; font-size: 0.85rem;">
+            <div style="display: flex; flex-direction: column; gap: 0.8rem;">
+
+              <div style="background: #1b5e20; border: 1px solid #4caf50; border-radius: 8px; padding: 1rem;">
+                <div style="display: flex; justify-content: space-between;">
+                  <span style="color: #81c784; font-weight: 600;">步骤1: 需求分析（Subagent #1）</span>
+                  <span style="color: #a5d6a7; font-size: 0.8rem;">✅ 完成 | 上下文: 独立窗口</span>
+                </div>
+                <div style="color: #c8e6c9; font-size: 0.8rem; margin-top: 0.5rem;">
+                  工具调用: read × 12, grep × 5, bash × 2 → <span style="color: #888;">这些留在子窗口，不传递</span>
+                </div>
+                <div style="background: #2e7d32; border-radius: 6px; padding: 0.8rem; margin-top: 0.5rem;">
+                  <div style="color: #a5d6a7; font-size: 0.75rem; margin-bottom: 0.3rem;">📤 结构化输出（完整传递给下一步）</div>
+                  <div style="color: #e8f5e9; font-family: monospace; font-size: 0.8rem; line-height: 1.5;">
+                    key_findings: ["用户认证模块需要 OAuth2 改造", ...]<br>
+                    artifacts: [{ type: "requirements_doc", content: "完整需求文档..." }]<br>
+                    context_for_next: "重点审查 auth/ 目录下的 3 个文件"
+                  </div>
+                </div>
+              </div>
+
+              <div style="text-align: center; color: #4caf50; font-size: 0.9rem;">
+                ↓ <strong>结构化摘要 + 完整 artifacts</strong>（非自由摘要）↓
+              </div>
+
+              <div style="background: #0d47a1; border: 1px solid #42a5f5; border-radius: 8px; padding: 1rem;">
+                <div style="display: flex; justify-content: space-between;">
+                  <span style="color: #90caf9; font-weight: 600;">步骤2: 代码审查（Subagent #2）</span>
+                  <span style="color: #bbdefb; font-size: 0.8rem;">🔄 执行中 | 上下文: 独立窗口</span>
+                </div>
+                <div style="background: #1565c0; border-radius: 6px; padding: 0.8rem; margin-top: 0.5rem;">
+                  <div style="color: #90caf9; font-size: 0.75rem; margin-bottom: 0.3rem;">📥 注入的上下文（来自步骤1）</div>
+                  <div style="color: #e3f2fd; font-family: monospace; font-size: 0.8rem; line-height: 1.5;">
+                    前序结果: "用户认证模块需要 OAuth2 改造..."<br>
+                    参考文档: [完整需求文档]<br>
+                    执行指引: "重点审查 auth/ 目录下的 3 个文件"
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            <div style="background: #1a237e; border-radius: 8px; padding: 1rem; margin-top: 1.5rem;">
+              <div style="color: #7986cb; font-weight: 600; margin-bottom: 0.5rem;">传导精度保障规则</div>
+              <div style="color: #c5cae9; font-size: 0.8rem; line-height: 1.6;">
+                1. <strong>artifacts 完整传递</strong> — 报告、代码、数据表等产物不做任何压缩<br>
+                2. <strong>过程信息丢弃</strong> — 工具调用的原始输出留在子窗口<br>
+                3. <strong>结构化 schema</strong> — 每步输出格式由技能定义约束<br>
+                4. <strong>context_for_next</strong> — 技能指令中明确定义"传递给下一步的信息"
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>手动 Compact：员工工作监控面板</h3>
+        <div class="mockup">
+          <div class="mockup-header">数字员工 — 任务执行监控</div>
+          <div class="mockup-body" style="padding: 0; background: #1a1a2e;">
+            <div style="padding: 1rem 1.5rem; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <div style="color: #e0e0e0; font-weight: 600;">员工 — 正在执行「全栈代码审查」工作流</div>
+                <div style="color: #888; font-size: 0.8rem; margin-top: 0.2rem;">步骤 2/5 · 代码审查 · 已运行 3 分 24 秒</div>
+              </div>
+              <div style="display: flex; gap: 0.5rem;">
+                <button style="background: #2a2a3e; border: 1px solid #555; color: #aaa; padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.8rem;">⏸ 暂停</button>
+                <button style="background: #b71c1c; border: none; color: #fff; padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.8rem;">⏹ 终止</button>
+              </div>
+            </div>
+
+            <div style="padding: 1rem 1.5rem; border-bottom: 1px solid #333; background: #16213e;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <span style="color: #90caf9; font-size: 0.85rem; font-weight: 600;">上下文状态</span>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                  <span style="color: #888; font-size: 0.8rem;">auto-compact: ON</span>
+                  <button style="background: #0d47a1; border: 1px solid #42a5f5; color: #90caf9; padding: 0.3rem 0.8rem; border-radius: 6px; font-size: 0.8rem;">手动压缩</button>
+                </div>
+              </div>
+              <div style="background: #0a1628; border-radius: 8px; height: 24px; overflow: hidden; position: relative;">
+                <div style="background: linear-gradient(90deg, #1b5e20, #2e7d32); width: 28%; height: 100%; border-radius: 8px 0 0 8px; position: absolute;"></div>
+                <div style="background: linear-gradient(90deg, #0d47a1, #1565c0); width: 34%; height: 100%; left: 28%; position: absolute;"></div>
+                <div style="background: #2a2a3e; width: 38%; height: 100%; left: 62%; position: absolute; border-radius: 0 8px 8px 0;"></div>
+                <div style="position: absolute; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.75rem; font-weight: 600;">
+                  62% 已使用 · 38% 剩余 · 预计步骤3后触发 auto-compact
+                </div>
+              </div>
+              <div style="display: flex; justify-content: space-between; margin-top: 0.5rem;">
+                <div style="display: flex; gap: 1rem;">
+                  <span style="color: #81c784; font-size: 0.75rem;">■ 步骤1 摘要: 5.2K</span>
+                  <span style="color: #64b5f6; font-size: 0.75rem;">■ 步骤2 执行中: 18.6K</span>
+                </div>
+                <span style="color: #888; font-size: 0.75rem;">总容量: 128K</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="interaction">
+    <div class="interaction-header">
+      <span class="role role-user">用户确认</span>
+    </div>
+    <div class="interaction-content">
+      用户确认了结构化传导机制和手动 Compact 监控面板设计。
+    </div>
+    <div class="decision-box">
+      <div class="decision-label">决策</div>
+      <div class="decision-text">
+        1. 步骤间传递使用结构化 schema（key_findings + artifacts + context_for_next），artifacts 100% 保真<br>
+        2. 监控面板显示上下文使用率，支持手动压缩按钮<br>
+        3. Auto Compact 和 Manual Compact 双模式并存
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr class="chapter-divider">
+
+<!-- ==================== 第6章 ==================== -->
+<div class="chapter" id="ch6">
+  <div class="chapter-header">
+    <h2>6. 压缩持久化机制（CC 调研）</h2>
+    <div class="chapter-meta">讨论主题: CC 是否将压缩前的原文持久化到磁盘？我们如何应用？</div>
+  </div>
+
+  <div class="interaction">
+    <div class="interaction-header">
+      <span class="role role-user">用户提问</span>
+    </div>
+    <div class="interaction-content">
+      "我看CC在压缩过程中，会把上下文的原文信息也持久化到磁盘，作为未来详细阅读时使用。你调研下他们是否是这么实现的，如果是，应用到设计里面。"
+    </div>
+  </div>
+
+  <div class="interaction">
+    <div class="interaction-header">
+      <span class="role role-ai">Claude 调研结论</span>
+    </div>
+    <div class="interaction-content">
+      <strong>确认：CC 确实将完整原文持久化到磁盘。</strong>核心机制是 Append-Only JSONL 日志文件：
+      <ul>
+        <li>每个会话是一个 .jsonl 文件（可达 30MB+），所有消息实时追加</li>
+        <li>压缩时只追加 compact_boundary 标记 + summary，从不删除原始消息</li>
+        <li>大型工具输出外置到 tool-results/ 目录</li>
+        <li>子代理有独立的 .jsonl 文件</li>
+        <li>CC 的一个已知不足（GitHub #27242）：UI 上没有方便的方式回看压缩前内容</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="vc-embed">
+    <div class="vc-embed-header">
+      <span>Visual Companion: compaction-persistence.html</span>
+      <span>CC 调研 + 我们的设计应用</span>
+    </div>
+    <div class="vc-embed-body">
+      <h2>CC 的上下文压缩持久化机制</h2>
+      <p class="subtitle">调研结论 + 我们的设计应用</p>
+
+      <div class="section">
+        <h3>CC 的实现：Append-Only JSONL 日志</h3>
+        <div class="mockup">
+          <div class="mockup-header">CC 压缩 = 逻辑压缩，非物理删除</div>
+          <div class="mockup-body" style="padding: 2rem; background: #1a1a2e; font-size: 0.85rem;">
+            <div style="display: flex; flex-direction: column; gap: 0.3rem; font-family: monospace;">
+              <div style="color: #888; font-size: 0.75rem; margin-bottom: 0.3rem;">~/.claude/projects/&lt;project&gt;/&lt;session-id&gt;.jsonl</div>
+              <div style="background: #1b5e20; border-radius: 6px; padding: 0.5rem 0.8rem; color: #c8e6c9;">
+                行 1-541: 所有原始消息、工具调用、输出 <span style="color: #81c784; float: right;">✅ 永久保留</span>
+              </div>
+              <div style="background: #b71c1c; border: 2px solid #ef5350; border-radius: 6px; padding: 0.8rem; margin: 0.5rem 0; text-align: center;">
+                <div style="color: #ffcdd2; font-weight: 700;">行 542: COMPACT BOUNDARY</div>
+                <div style="color: #ef9a9a; font-size: 0.8rem;">{"trigger":"auto", "preTokens": 183386}</div>
+              </div>
+              <div style="background: #e65100; border-radius: 6px; padding: 0.5rem 0.8rem;">
+                <div style="color: #ffe0b2; font-weight: 600;">行 543: COMPACT SUMMARY（摘要）</div>
+              </div>
+              <div style="background: #0d47a1; border-radius: 6px; padding: 0.5rem 0.8rem; color: #bbdefb; margin-top: 0.3rem;">
+                行 544+: 新消息（API 只发这些 + summary）<span style="color: #64b5f6; float: right;">新消息</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>我们的应用：执行日志持久化</h3>
+        <div class="mockup">
+          <div class="mockup-header">AgentCreator 执行日志存储结构</div>
+          <div class="mockup-body" style="padding: 2rem; background: #1a1a2e; font-size: 0.85rem;">
+            <div style="display: flex; gap: 1.5rem;">
+              <div style="flex: 1;">
+                <div style="font-family: monospace; line-height: 1.8; background: #0a1628; border-radius: 8px; padding: 1rem;">
+                  <div style="color: #4fc3f7;">data/executions/&lt;task-id&gt;/</div>
+                  <div style="padding-left: 1.5rem;">
+                    <div style="color: #81c784;">├── main.jsonl ← 主流程日志</div>
+                    <div style="color: #ce93d8;">├── steps/</div>
+                    <div style="color: #888; padding-left: 1.5rem;">├── step-1-需求分析.jsonl</div>
+                    <div style="color: #888; padding-left: 1.5rem;">└── step-2-代码审查.jsonl</div>
+                    <div style="color: #ffab91;">├── tool-outputs/ ← 大型输出外置</div>
+                    <div style="color: #90caf9;">└── summaries/ ← 结构化摘要</div>
+                  </div>
+                </div>
+              </div>
+              <div style="flex: 1;">
+                <div style="background: #1b5e20; border-radius: 8px; padding: 1rem; margin-bottom: 0.8rem;">
+                  <div style="color: #a5d6a7; font-weight: 600;">场景 1：执行回溯</div>
+                  <div style="color: #c8e6c9; font-size: 0.8rem;">监控面板展开查看完整原始日志</div>
+                </div>
+                <div style="background: #0d47a1; border-radius: 8px; padding: 1rem; margin-bottom: 0.8rem;">
+                  <div style="color: #90caf9; font-weight: 600;">场景 2：问题诊断</div>
+                  <div style="color: #bbdefb; font-size: 0.8rem;">回溯到具体步骤的具体工具调用</div>
+                </div>
+                <div style="background: #4a148c; border-radius: 8px; padding: 1rem;">
+                  <div style="color: #ce93d8; font-weight: 600;">场景 3：经验沉淀（二期）</div>
+                  <div style="color: #e1bee7; font-size: 0.8rem;">从历史日志提炼模式写入记忆</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>差异化：监控面板中的日志回溯</h3>
+        <div class="mockup">
+          <div class="mockup-header">点击步骤 → 展开原始工具调用日志</div>
+          <div class="mockup-body" style="padding: 1rem 1.5rem; background: #1a1a2e;">
+            <div style="background: #16213e; border: 2px solid #42a5f5; border-radius: 8px; padding: 1rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                  <span style="color: #4caf50;">✅</span>
+                  <span style="color: #90caf9; font-weight: 600;">步骤 2: 代码审查</span>
+                  <span style="color: #666; font-size: 0.8rem;">8 次工具调用 · 18.6K tokens 原始</span>
+                </div>
+                <span style="color: #42a5f5; font-size: 0.8rem;">▼ 收起原始日志</span>
+              </div>
+              <div style="background: #0a1628; border-radius: 6px; padding: 1rem; margin-top: 0.8rem; font-family: monospace; font-size: 0.8rem; line-height: 1.8;">
+                <div style="color: #888;">[14:32:05] <span style="color: #ce93d8;">Read</span> → src/auth/oauth.ts</div>
+                <div style="background: #111827; border-radius: 4px; padding: 0.5rem; margin: 0.3rem 0 0.5rem 1.5rem; color: #9ca3af; font-size: 0.75rem;">
+                  45: async storePassword(userId, password) {<br>
+                  <span style="color: #ef5350;">46:   // WARNING: 密码明文存储!</span>
+                </div>
+                <div style="color: #64b5f6;">[14:32:12] <span style="color: #ffab91;">发现问题</span>: oauth.ts:45 密码明文存储</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="subtitle" style="margin-top: 1rem;">CC 目前 UI 不支持回看压缩前内容（#27242），<strong>这是我们的差异化</strong>。</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="interaction">
+    <div class="interaction-header">
+      <span class="role role-user">用户确认</span>
+    </div>
+    <div class="interaction-content">
+      "可以。" — 确认持久化方案。
+    </div>
+    <div class="decision-box">
+      <div class="decision-label">决策</div>
+      <div class="decision-text">
+        1. 采用 Append-Only 日志持久化，压缩不删除原始数据<br>
+        2. 每个工作流步骤的完整执行日志存到独立文件<br>
+        3. 监控面板支持展开查看每步原始日志（CC 没有做到的差异化功能）<br>
+        4. 大型工具输出外置存储，避免日志文件过大
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr class="chapter-divider">
+
+<!-- ==================== 第7章 ==================== -->
+<div class="chapter" id="ch7">
+  <div class="chapter-header">
+    <h2>7. 完整设计方案总览</h2>
+    <div class="chapter-meta">整合所有确认决策的最终设计</div>
+  </div>
+
+  <div class="interaction">
+    <div class="interaction-header">
+      <span class="role role-ai">Claude 总结</span>
+    </div>
+    <div class="interaction-content">
+      将所有讨论中确认的决策整合为完整设计方案，涵盖系统架构、双模式创建、概念层次、工作流执行、上下文管理等所有方面。
+    </div>
+  </div>
+
+  <div class="vc-embed">
+    <div class="vc-embed-header">
+      <span>Visual Companion: design-overview.html</span>
+      <span>完整设计总览</span>
+    </div>
+    <div class="vc-embed-body">
+      <h2>全部决策汇总</h2>
+
+      <div class="mockup">
+        <div class="mockup-header">技术决策总表</div>
+        <div class="mockup-body" style="padding: 2rem; background: #1a1a2e;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+            <tr style="border-bottom: 1px solid #333;">
+              <th style="text-align: left; padding: 0.8rem; color: #4fc3f7; width: 30%;">决策项</th>
+              <th style="text-align: left; padding: 0.8rem; color: #4fc3f7;">选定方案</th>
+              <th style="text-align: left; padding: 0.8rem; color: #4fc3f7; width: 12%;">状态</th>
+            </tr>
+            <tr style="border-bottom: 1px solid #222;">
+              <td style="padding: 0.8rem; color: #e0e0e0;">对话模式架构</td>
+              <td style="padding: 0.8rem; color: #888;">混合架构：强 LLM 驱动对话 + OpenCode 网关验证</td>
+              <td style="padding: 0.8rem; color: #81c784;">✅</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #222;">
+              <td style="padding: 0.8rem; color: #e0e0e0;">对话模式布局</td>
+              <td style="padding: 0.8rem; color: #888;">方案 B：三栏布局（左配置 + 中编辑器 + 右对话）</td>
+              <td style="padding: 0.8rem; color: #81c784;">✅</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #222;">
+              <td style="padding: 0.8rem; color: #e0e0e0;">AI 引导策略</td>
+              <td style="padding: 0.8rem; color: #888;">逐字段引导填充（3步）</td>
+              <td style="padding: 0.8rem; color: #81c784;">✅</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #222;">
+              <td style="padding: 0.8rem; color: #e0e0e0;">手动模式优化</td>
+              <td style="padding: 0.8rem; color: #888;">模板选择 + 结构化骨架 + 工具场景化语言</td>
+              <td style="padding: 0.8rem; color: #81c784;">✅</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #222;">
+              <td style="padding: 0.8rem; color: #e0e0e0;">概念层次</td>
+              <td style="padding: 0.8rem; color: #888;">工具→技能→工作流（技能不嵌套）</td>
+              <td style="padding: 0.8rem; color: #81c784;">✅</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #222;">
+              <td style="padding: 0.8rem; color: #e0e0e0;">工作流归属</td>
+              <td style="padding: 0.8rem; color: #888;">归入数字员工模块（Persona）</td>
+              <td style="padding: 0.8rem; color: #81c784;">✅</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #222;">
+              <td style="padding: 0.8rem; color: #e0e0e0;">工作流执行</td>
+              <td style="padding: 0.8rem; color: #888;">CC 式 Agent 编排，后端轻量协调</td>
+              <td style="padding: 0.8rem; color: #81c784;">✅</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #222;">
+              <td style="padding: 0.8rem; color: #e0e0e0;">步骤隔离</td>
+              <td style="padding: 0.8rem; color: #888;">Subagent 独立执行，artifacts 不压缩</td>
+              <td style="padding: 0.8rem; color: #81c784;">✅</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #222;">
+              <td style="padding: 0.8rem; color: #e0e0e0;">上下文管理</td>
+              <td style="padding: 0.8rem; color: #888;">四层防线 + 手动 Compact（一期前三层）</td>
+              <td style="padding: 0.8rem; color: #81c784;">✅</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #222;">
+              <td style="padding: 0.8rem; color: #e0e0e0;">压缩持久化</td>
+              <td style="padding: 0.8rem; color: #888;">Append-Only 日志 + 监控面板回溯</td>
+              <td style="padding: 0.8rem; color: #81c784;">✅</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #222;">
+              <td style="padding: 0.8rem; color: #e0e0e0;">对话模式 LLM 选择</td>
+              <td style="padding: 0.8rem; color: #888;">方案 B：用户可选（从模型池选取，有默认推荐）</td>
+              <td style="padding: 0.8rem; color: #81c784;">✅</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="interaction">
+    <div class="interaction-header">
+      <span class="role role-decision">最终确认</span>
+    </div>
+    <div class="interaction-content">
+      所有 11 项技术决策已全部确认。下一步：撰写正式设计规格文档（spec），进入实施阶段。
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 页脚 ==================== -->
+<div class="doc-footer">
+  <p>本文档由 Superpowers Visual Companion 生成的可视化设计稿 + 讨论交互记录整合而成。</p>
+  <p>AgentCreator 项目 | 2026-03-13 | Claude Opus 4.6</p>
+  <p style="margin-top: 0.5rem; color: #555;">原始 HTML 文件保存于: .superpowers/brainstorm/74643-1773373375/</p>
+</div>
+
+</body>
+</html>

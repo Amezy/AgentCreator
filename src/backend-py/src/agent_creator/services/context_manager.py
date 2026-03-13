@@ -66,7 +66,7 @@ class ContextManager:
             "auto_compact_enabled": True,
             "estimated_compact_at_step": estimated_compact_step,
             "steps_breakdown": [
-                {"step": s["step_number"], "label": s["step_label"], "tokens": s["tokens_used"] or 0, "status": s["status"]}
+                {"step_number": s["step_number"], "label": s["step_label"], "tokens": s["tokens_used"] or 0, "status": s["status"]}
                 for s in steps
             ],
         }

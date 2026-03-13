@@ -8,9 +8,19 @@
     "dev:backend": "pnpm --filter backend dev",
     "dev:frontend": "pnpm --filter frontend dev",
     "build": "pnpm --filter backend build && pnpm --filter frontend build",
-    "test": "pnpm --filter backend test && pnpm --filter frontend test"
+    "test": "pnpm --filter backend test && pnpm --filter frontend test",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write ."
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["better-sqlite3", "esbuild", "authenticate-pam"]
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "esbuild",
+      "authenticate-pam"
+    ]
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.6"
   }
 }
