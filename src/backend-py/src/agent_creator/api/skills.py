@@ -12,6 +12,7 @@ import aiosqlite
 from agent_creator.db.connection import get_db
 from agent_creator.models.schemas import ApiResponse
 from agent_creator.services.skill_service import skill_service
+from agent_creator.services.ai_skill_generator import generate_skill_stream
 
 router = APIRouter()
 
@@ -126,17 +127,33 @@ async def get_available_tools():
 
 
 class AiGenerateRequest(BaseModel):
-    messages: list[dict]
-    current_skill: dict | None = None
     model_id: str | None = None
+    messages: list[dict] = []
+    current_skill: dict = {}
+    step: int = 1
+
 
 @router.post("/ai-generate")
-async def ai_generate_skill(body: AiGenerateRequest):
-    """AI 辅助生成技能指令（SSE 流式响应）- 骨架实现"""
-    async def generate():
-        yield 'data: {"type": "text", "content": "AI 辅助生成功能正在开发中，请先使用手动编写模式。"}\n\n'
-        yield 'data: {"type": "done"}\n\n'
-    return StreamingResponse(generate(), media_type="text/event-stream")
+async def ai_generate(
+    body: AiGenerateRequest,
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """AI-assisted skill generation via SSE stream."""
+    return StreamingResponse(
+        generate_skill_stream(
+            db=db,
+            messages=body.messages,
+            current_skill=body.current_skill,
+            model_id=body.model_id,
+            step=body.step,
+        ),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.get("/for-position/{position_id}", response_model=ApiResponse)
