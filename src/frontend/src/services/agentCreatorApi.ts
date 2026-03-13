@@ -111,6 +111,17 @@ export const skillApi = {
   },
 };
 
+// ─── Skill Templates ────────────────────────────────────
+export const skillTemplateApi = {
+  list: (params?: { category?: string }) => {
+    const query = params ? '?' + new URLSearchParams(params as any).toString() : '';
+    return request<any[]>(`/skill-templates${query}`);
+  },
+
+  get: (id: string) =>
+    request<any>(`/skill-templates/${id}`),
+};
+
 // ===== MCP 连接池 API =====
 
 export const mcpApi = {
