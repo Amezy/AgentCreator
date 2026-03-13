@@ -33,6 +33,7 @@ import WorkflowView from './pages/agent-creator/WorkflowView';
 import Monitor from './pages/agent-creator/Monitor';
 import Dashboard from './pages/agent-creator/Dashboard';
 import Settings from './pages/agent-creator/Settings';
+import ExecutionMonitor from './pages/agent-creator/ExecutionMonitor';
 
 const App: React.FC = () => {
   return (
@@ -55,6 +56,8 @@ const App: React.FC = () => {
         {/* 全屏技能编辑器（独立于 AgentCreatorLayout） */}
         <Route path="/agent-creator/skills/:id/edit" element={<SkillEditor />} />
         <Route path="/agent-creator/skills/new" element={<SkillEditor />} />
+        {/* 全屏执行监控页面（独立于 AgentCreatorLayout） */}
+        <Route path="/agent-creator/executions/:id" element={<ExecutionMonitor />} />
         {/* AgentCreator 模块（嵌套路由） */}
         <Route path="/agent-creator" element={<AgentCreatorLayout />}>
           <Route index element={<Navigate to="dashboard" replace />} />

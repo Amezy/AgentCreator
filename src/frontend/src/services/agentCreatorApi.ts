@@ -365,6 +365,83 @@ export const monitorApi = {
   getHealth: () => request<any>('/monitor/health'),
 };
 
+// ─── Execution Types ───────────────────────────────
+export interface ExecutionInfo {
+  id: string;
+  workflow_id: string;
+  persona_id: string;
+  task_title: string;
+  status: 'pending' | 'running' | 'paused' | 'completed' | 'failed';
+  total_steps: number;
+  completed_steps: number;
+  total_tokens_used: number;
+  started_at: string | null;
+  completed_at: string | null;
+}
+
+export interface StepInfo {
+  step_number: number;
+  step_label: string;
+  status: string;
+  tokens_used: number;
+  tool_calls_count: number;
+  summary_json: {
+    key_findings?: string[];
+    artifacts?: { type: string; content: string }[];
+    context_for_next?: string;
+  } | null;
+  started_at: string | null;
+  completed_at: string | null;
+}
+
+export interface StepLogEntry {
+  timestamp?: number;
+  type?: string;
+  [key: string]: unknown;
+}
+
+export interface ContextStatus {
+  total_capacity: number;
+  used_tokens: number;
+  usage_percent: number;
+  auto_compact_enabled: boolean;
+  estimated_compact_at_step: number | null;
+  steps_breakdown: {
+    step: number;
+    label: string;
+    tokens: number;
+    status: string;
+  }[];
+}
+
+export interface CompactResult {
+  pre_tokens: number;
+  post_tokens: number;
+  freed_tokens: number;
+  trigger: string;
+}
+
+// ─── Executions ────────────────────────────────────
+export const executionApi = {
+  create: (data: { workflow_id: string; persona_id: string; task_title: string; input_context?: string }) =>
+    request<ExecutionInfo>('/executions', { method: 'POST', body: JSON.stringify(data) }),
+
+  get: (id: string) =>
+    request<ExecutionInfo>(`/executions/${id}`),
+
+  getSteps: (id: string) =>
+    request<StepInfo[]>(`/executions/${id}/steps`),
+
+  getStepLog: (id: string, stepNumber: number) =>
+    request<StepLogEntry[]>(`/executions/${id}/steps/${stepNumber}/log`),
+
+  compact: (id: string) =>
+    request<CompactResult>(`/executions/${id}/compact`, { method: 'POST' }),
+
+  getContextStatus: (id: string) =>
+    request<ContextStatus>(`/executions/${id}/context-status`),
+};
+
 // ─── SSE Helpers ────────────────────────────────────
 export interface SSEEvent {
   type: 'message' | 'form_update' | 'tools_suggest' | 'instructions_update' | 'step_complete' | 'error' | 'done';
