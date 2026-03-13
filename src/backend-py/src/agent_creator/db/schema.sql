@@ -278,3 +278,19 @@ CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at);
 CREATE INDEX IF NOT EXISTS idx_memories_persona ON memories(persona_id);
 CREATE INDEX IF NOT EXISTS idx_memories_type ON memories(type);
 CREATE INDEX IF NOT EXISTS idx_memories_expires ON memories(expires_at);
+
+-- 技能模板
+CREATE TABLE IF NOT EXISTS skill_templates (
+    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+    name TEXT NOT NULL,
+    description TEXT,
+    icon TEXT,
+    category TEXT NOT NULL,
+    default_tools TEXT,
+    default_instructions TEXT,
+    sort_order INTEGER DEFAULT 0,
+    is_active BOOLEAN DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_skill_templates_category ON skill_templates(category);
