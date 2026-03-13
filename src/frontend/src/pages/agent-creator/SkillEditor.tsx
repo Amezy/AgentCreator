@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { skillApi, positionApi, mcpApi } from '../../services/agentCreatorApi';
 import './SkillEditor.css';
+import SkillTemplateSelector from './components/SkillTemplateSelector';
+import { TOOL_DISPLAY_MAP, getToolDisplay, groupToolsByCategory } from '../../constants/toolDisplayMap';
 
 interface ToolItem {
   id: string;
@@ -82,6 +84,7 @@ const SkillEditor: React.FC = () => {
   const [skillVersion, setSkillVersion] = useState(1);
   const [isPreset, setIsPreset] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '' });
+  const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   const snackbarTimerRef = React.useRef<ReturnType<typeof setTimeout>>();
 
   const showSnackbar = useCallback((message: string) => {
@@ -118,6 +121,13 @@ const SkillEditor: React.FC = () => {
     mcpApi.list().then(setMcpConnections).catch(() => {});
   }, []);
 
+  // 当新建技能且为手动模式时，显示模板选择器
+  useEffect(() => {
+    if (!id && searchParams.get('mode') === 'manual') {
+      setShowTemplateSelector(true);
+    }
+  }, [id, searchParams]);
+
   const updateForm = useCallback((patch: Partial<SkillForm>) => {
     setForm(prev => ({ ...prev, ...patch }));
   }, []);
@@ -129,6 +139,16 @@ const SkillEditor: React.FC = () => {
         ? prev.opencode_tools.filter(t => t !== toolId)
         : [...prev.opencode_tools, toolId],
     }));
+  };
+
+  const handleTemplateSelect = (template: { name: string; default_tools: string[]; default_instructions: string; category: string }) => {
+    setForm(prev => ({
+      ...prev,
+      category: template.category as SkillForm['category'],
+      instructions: template.default_instructions,
+      opencode_tools: template.default_tools,
+    }));
+    setShowTemplateSelector(false);
   };
 
   const handleSave = async () => {
@@ -184,6 +204,20 @@ const SkillEditor: React.FC = () => {
     return (
       <div className="skill-editor flex items-center justify-center">
         <p className="text-on-surface-variant">加载中...</p>
+      </div>
+    );
+  }
+
+  if (showTemplateSelector) {
+    return (
+      <div className="skill-editor">
+        <SkillTemplateSelector
+          onSelect={handleTemplateSelect}
+          onCancel={() => {
+            setShowTemplateSelector(false);
+            navigate('/agent-creator/resources');
+          }}
+        />
       </div>
     );
   }
@@ -275,21 +309,30 @@ const SkillEditor: React.FC = () => {
           </section>
 
           <section>
-            <h4 className="label-large text-on-surface-variant mb-3">预置工具 <span className="label-small text-on-surface-variant ml-1">({form.opencode_tools.length} 已选)</span></h4>
+            <h4 className="label-large text-on-surface-variant mb-3">绑定工具 <span className="label-small text-on-surface-variant ml-1">({form.opencode_tools.length} 已选)</span></h4>
             <div className="space-y-2">
-              {Object.entries(toolsByCategory).map(([cat, tools]) => (
-                <div key={cat}>
-                  <p className="label-small text-on-surface-variant/70 mb-1">{categoryLabels[cat] || cat}</p>
-                  <div className="flex flex-wrap gap-1">
-                    {tools.map(t => (
-                      <button key={t.id} onClick={() => toggleTool(t.id)} title={t.description}
-                        className={`px-2 py-0.5 rounded label-small transition-colors ${
-                          form.opencode_tools.includes(t.id)
-                            ? 'bg-primary-container text-on-primary-container'
-                            : 'bg-surface-container text-on-surface-variant hover:bg-on-surface/[0.08]'
-                        }`}>{t.id}</button>
-                    ))}
-                  </div>
+              {Object.entries(
+                groupToolsByCategory(availableTools.map(t => t.id))
+              ).map(([category, tools]) => (
+                <div key={category} className="mb-3">
+                  <p className="label-small text-on-surface-variant/70 mb-1.5">{category}</p>
+                  {tools.map(({ id: toolId, display }) => (
+                    <label
+                      key={toolId}
+                      className="flex items-center gap-2 py-1 px-1 rounded hover:bg-on-surface/[0.04] cursor-pointer"
+                      title={`${toolId} — ${display.description}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={form.opencode_tools.includes(toolId)}
+                        onChange={() => toggleTool(toolId)}
+                        className="rounded border-outline-variant"
+                      />
+                      <span className="label-small text-on-surface">
+                        {display.icon} {display.label}
+                      </span>
+                    </label>
+                  ))}
                 </div>
               ))}
               {availableTools.length === 0 && <p className="body-small text-on-surface-variant/50">加载工具列表中...</p>}
