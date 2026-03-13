@@ -1,0 +1,134 @@
+@import '@fontsource/roboto/300.css';
+@import '@fontsource/roboto/400.css';
+@import '@fontsource/roboto/500.css';
+@import '@fontsource/roboto/700.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: 'Roboto', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-surface text-on-surface m-0 p-0;
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+}
+
+@layer components {
+  /* M3 State Layer */
+  .state-layer {
+    @apply relative overflow-hidden;
+  }
+
+  .state-layer::after {
+    content: '';
+    @apply absolute inset-0 opacity-0 transition-opacity duration-200 pointer-events-none;
+    background: currentColor;
+  }
+
+  .state-layer:hover::after {
+    @apply opacity-[0.08];
+  }
+
+  .state-layer:focus-visible::after {
+    @apply opacity-[0.12];
+  }
+
+  .state-layer:active::after {
+    @apply opacity-[0.12];
+  }
+
+  /* M3 Ripple Effect */
+  .ripple {
+    @apply relative overflow-hidden;
+  }
+
+  .ripple-effect {
+    position: absolute;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.12;
+    transform: scale(0);
+    animation: ripple-animation 600ms ease-out forwards;
+    pointer-events: none;
+  }
+
+  @keyframes ripple-animation {
+    to {
+      transform: scale(4);
+      opacity: 0;
+    }
+  }
+
+  /* M3 Typography */
+  .display-large {
+    @apply text-[57px] leading-[64px] tracking-[-0.25px] font-normal;
+  }
+
+  .display-medium {
+    @apply text-[45px] leading-[52px] tracking-normal font-normal;
+  }
+
+  .display-small {
+    @apply text-[36px] leading-[44px] tracking-normal font-normal;
+  }
+
+  .headline-large {
+    @apply text-[32px] leading-[40px] tracking-normal font-normal;
+  }
+
+  .headline-medium {
+    @apply text-[28px] leading-[36px] tracking-normal font-normal;
+  }
+
+  .headline-small {
+    @apply text-[24px] leading-[32px] tracking-normal font-normal;
+  }
+
+  .title-large {
+    @apply text-[22px] leading-[28px] tracking-normal font-normal;
+  }
+
+  .title-medium {
+    @apply text-[16px] leading-[24px] tracking-[0.15px] font-medium;
+  }
+
+  .title-small {
+    @apply text-[14px] leading-[20px] tracking-[0.1px] font-medium;
+  }
+
+  .body-large {
+    @apply text-[16px] leading-[24px] tracking-[0.5px] font-normal;
+  }
+
+  .body-medium {
+    @apply text-[14px] leading-[20px] tracking-[0.25px] font-normal;
+  }
+
+  .body-small {
+    @apply text-[12px] leading-[16px] tracking-[0.4px] font-normal;
+  }
+
+  .label-large {
+    @apply text-[14px] leading-[20px] tracking-[0.1px] font-medium;
+  }
+
+  .label-medium {
+    @apply text-[12px] leading-[16px] tracking-[0.5px] font-medium;
+  }
+
+  .label-small {
+    @apply text-[11px] leading-[16px] tracking-[0.5px] font-medium;
+  }
+}

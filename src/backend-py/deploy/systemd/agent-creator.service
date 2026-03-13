@@ -1,0 +1,16 @@
+[Unit]
+Description=AgentCreator AI Platform
+After=network.target
+
+[Service]
+Type=simple
+User=boxsystem
+WorkingDirectory=/opt/aibox/agent-creator
+ExecStart=/opt/aibox/agent-creator/.venv/bin/uvicorn agent_creator.main:app --host 0.0.0.0 --port 8100
+Restart=always
+RestartSec=5
+Environment=AC_DATABASE_PATH=/opt/aibox/agent-creator/data/agent_creator.db
+Environment=AC_CHROMA_PATH=/opt/aibox/agent-creator/data/chroma
+
+[Install]
+WantedBy=multi-user.target
