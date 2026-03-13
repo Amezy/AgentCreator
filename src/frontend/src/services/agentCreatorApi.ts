@@ -364,3 +364,63 @@ export const monitorApi = {
   /** 获取系统健康状态 */
   getHealth: () => request<any>('/monitor/health'),
 };
+
+// ─── SSE Helpers ────────────────────────────────────
+export interface SSEEvent {
+  type: 'message' | 'form_update' | 'tools_suggest' | 'instructions_update' | 'step_complete' | 'error' | 'done';
+  content?: string;
+  field?: string;
+  value?: string;
+  tools?: string[];
+  labels?: Record<string, string>;
+  step?: number;
+  next_step?: number;
+  message?: string;
+  code?: string;
+}
+
+export async function fetchSSE(
+  url: string,
+  body: Record<string, unknown>,
+  onEvent: (event: SSEEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const token = localStorage.getItem('jwt_token');
+  const resp = await fetch(`${AGENT_API_BASE}${url}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(body),
+    signal,
+  });
+
+  if (!resp.ok || !resp.body) {
+    throw new Error(`SSE request failed: ${resp.status}`);
+  }
+
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() ?? '';
+
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        try {
+          const event: SSEEvent = JSON.parse(line.slice(6));
+          onEvent(event);
+        } catch {
+          // Skip malformed events
+        }
+      }
+    }
+  }
+}

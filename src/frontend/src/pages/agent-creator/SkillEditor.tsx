@@ -3,6 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { skillApi, positionApi, mcpApi } from '../../services/agentCreatorApi';
 import './SkillEditor.css';
 import SkillTemplateSelector from './components/SkillTemplateSelector';
+import AIChatPanel from './components/AIChatPanel';
 import { TOOL_DISPLAY_MAP, getToolDisplay, groupToolsByCategory } from '../../constants/toolDisplayMap';
 
 interface ToolItem {
@@ -85,6 +86,7 @@ const SkillEditor: React.FC = () => {
   const [isPreset, setIsPreset] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '' });
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
+  const [aiStep, setAiStep] = useState(1);
   const snackbarTimerRef = React.useRef<ReturnType<typeof setTimeout>>();
 
   const showSnackbar = useCallback((message: string) => {
@@ -149,6 +151,22 @@ const SkillEditor: React.FC = () => {
       opencode_tools: template.default_tools,
     }));
     setShowTemplateSelector(false);
+  };
+
+  const handleAIFormUpdate = (field: string, value: string) => {
+    setForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleAIToolsSuggest = (tools: string[]) => {
+    setForm(prev => ({ ...prev, opencode_tools: tools }));
+  };
+
+  const handleAIInstructionsUpdate = (content: string) => {
+    setForm(prev => ({ ...prev, instructions: content }));
+  };
+
+  const handleAIStepComplete = (nextStep: number) => {
+    setAiStep(nextStep);
   };
 
   const handleSave = async () => {
@@ -402,26 +420,14 @@ const SkillEditor: React.FC = () => {
         {/* Right AI panel */}
         <div className={`skill-editor-ai-panel ${showAiPanel ? '' : 'collapsed'}`}>
           {showAiPanel && (
-            <>
-              <div className="px-4 py-3 border-b border-outline-variant/50">
-                <h4 className="label-large text-on-surface">AI 助手</h4>
-                <p className="label-small text-on-surface-variant mt-0.5">帮助你生成和优化技能指令</p>
-              </div>
-              <div className="flex-1 overflow-y-auto p-4">
-                <div className="bg-surface-container rounded-lg p-3 mb-3">
-                  <p className="body-small text-on-surface-variant">
-                    AI 辅助生成功能正在开发中。当前版本请手动编写技能指令。
-                  </p>
-                  <p className="body-small text-on-surface-variant mt-2">提示：好的技能指令应包含：</p>
-                  <ul className="body-small text-on-surface-variant mt-1 list-disc list-inside space-y-0.5">
-                    <li>明确的执行流程</li>
-                    <li>审查/操作维度</li>
-                    <li>输出格式要求</li>
-                    <li>约束条件和注意事项</li>
-                  </ul>
-                </div>
-              </div>
-            </>
+            <AIChatPanel
+              step={aiStep}
+              currentSkill={form as unknown as Record<string, unknown>}
+              onFormUpdate={handleAIFormUpdate}
+              onToolsSuggest={handleAIToolsSuggest}
+              onInstructionsUpdate={handleAIInstructionsUpdate}
+              onStepComplete={handleAIStepComplete}
+            />
           )}
         </div>
       </div>
