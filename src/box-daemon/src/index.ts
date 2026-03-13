@@ -11,20 +11,71 @@ import { createAuthMiddleware, renewToken } from './auth';
 import { startAdvertising, stopAdvertising } from './discovery';
 import { registerProcess, startAllProcesses, stopAllProcesses, getProcessStates } from './process-guard';
 import { RateLimiter, CircuitBreaker } from './gateway';
-import { DaemonConfig, ErrorCode } from './types';
+import { DaemonConfig, CloudConfig, ErrorCode } from './types';
+import { CloudConnector } from './cloud';
 
 const VERSION = '1.0.0';
 
+/** Load cloud config from config/cloud.json */
+function loadCloudConfig(boxId: string): CloudConfig | undefined {
+  const configPath = path.join(__dirname, '..', 'config', 'cloud.json');
+
+  // Env var override: CLOUD_WS_URL takes precedence
+  if (process.env.CLOUD_WS_URL) {
+    return {
+      wsUrl: process.env.CLOUD_WS_URL,
+      boxId,
+      version: VERSION,
+      heartbeatInterval: parseInt(process.env.CLOUD_HEARTBEAT_INTERVAL || '30000', 10),
+      heartbeatTimeout: parseInt(process.env.CLOUD_HEARTBEAT_TIMEOUT || '90000', 10),
+      commandTimeout: parseInt(process.env.CLOUD_COMMAND_TIMEOUT || '30000', 10),
+    };
+  }
+
+  // Read config file
+  if (!fs.existsSync(configPath)) {
+    console.log(`[Daemon] Cloud config not found: ${configPath}, cloud disabled`);
+    return undefined;
+  }
+
+  let fileConfig: Record<string, unknown>;
+  try {
+    fileConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+  } catch (err) {
+    console.warn(`[Daemon] Failed to parse ${configPath}, cloud disabled:`, err);
+    return undefined;
+  }
+
+  if (fileConfig.enabled === false) {
+    console.log('[Daemon] Cloud connector disabled in cloud.json');
+    return undefined;
+  }
+
+  return {
+    wsUrl: (fileConfig.wsUrl as string) || 'ws://10.10.142.105:3100/ws/v1/box',
+    boxId,
+    version: VERSION,
+    heartbeatInterval: (fileConfig.heartbeatInterval as number) || 30000,
+    heartbeatTimeout: (fileConfig.heartbeatTimeout as number) || 90000,
+    commandTimeout: (fileConfig.commandTimeout as number) || 30000,
+  };
+}
+
 function loadConfig(): DaemonConfig {
+  const dbPath = process.env.BOX_DAEMON_DB_PATH || path.join(__dirname, '..', 'data', 'daemon.db');
+  const boxId = process.env.BOX_ID || loadOrCreateBoxId(dbPath);
+  const cloud = loadCloudConfig(boxId);
+
   return {
     port: parseInt(process.env.BOX_DAEMON_PORT || '3002', 10),
     host: process.env.BOX_DAEMON_HOST || '0.0.0.0',
     jwtSecret: process.env.BOX_DAEMON_JWT_SECRET || (() => { throw new Error('BOX_DAEMON_JWT_SECRET env var is required'); })(),
     boxName: process.env.BOX_NAME || 'AIBOX',
-    boxId: process.env.BOX_ID || loadOrCreateBoxId(process.env.BOX_DAEMON_DB_PATH || path.join(__dirname, '..', 'data', 'daemon.db')),
-    dbPath: process.env.BOX_DAEMON_DB_PATH || path.join(__dirname, '..', 'data', 'daemon.db'),
+    boxId,
+    dbPath,
     backendUrl: process.env.BOX_BACKEND_URL || 'http://localhost:3010',
     backendWsUrl: process.env.BOX_BACKEND_WS_URL || 'ws://localhost:3011',
+    cloud,
   };
 }
 
@@ -55,7 +106,7 @@ async function bootstrap() {
   const app = Fastify({ logger: false });
   await app.register(cors, { origin: true });
 
-  app.addContentTypeParser('application/json', { bodyLimit: 10 * 1024 * 1024 }, app.getDefaultJsonParser('error', 'error'));
+  app.addContentTypeParser('application/json', { parseAs: 'string', bodyLimit: 10 * 1024 * 1024 }, app.getDefaultJsonParser('error', 'error'));
 
   // ── 3. Routes ──
   const rateLimiter = new RateLimiter(60, 60_000);
@@ -135,13 +186,24 @@ async function bootstrap() {
     startAllProcesses();
   }
 
-  // ── 7. Periodic cleanup ──
+  // ── 7. Cloud connector (optional) ──
+  let cloudConnector: CloudConnector | null = null;
+  if (config.cloud) {
+    cloudConnector = new CloudConnector(config.cloud);
+    await cloudConnector.start();
+    console.log(`[Daemon] Cloud connector started (${config.cloud.wsUrl})`);
+  } else {
+    console.log('[Daemon] Cloud connector disabled (CLOUD_WS_URL not set)');
+  }
+
+  // ── 8. Periodic cleanup ──
   setInterval(() => cleanOldLogs(30), 24 * 60 * 60 * 1000);
   setInterval(() => cleanExpiredGracePeriods(), 30_000);
 
-  // ── 8. Graceful shutdown ──
+  // ── 9. Graceful shutdown ──
   const shutdown = async (signal: string) => {
     console.log(`[Daemon] ${signal} received, shutting down...`);
+    if (cloudConnector) await cloudConnector.stop();
     stopAllProcesses();
     stopAdvertising();
     await app.close();

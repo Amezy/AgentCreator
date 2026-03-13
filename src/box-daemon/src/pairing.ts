@@ -43,8 +43,10 @@ export async function pairingRoutes(fastify: FastifyInstance, opts: PairingOpts)
       return reply.code(423).send({ error: ErrorCode.PAIRING_LOCKED, message: `Locked. Retry in ${waitSec}s` });
     }
 
+    // Replace any existing active session (only one client can pair at a time anyway)
     if (activeSession && activeSession.expiresAt > Date.now()) {
-      return reply.code(409).send({ error: 'PAIRING_ACTIVE', message: 'A pairing session is already active' });
+      console.log(`[Pairing] Replacing active session (was for client: ${activeSession.clientName})`);
+      activeSession = null;
     }
 
     const clientName = typeof request.body.clientName === 'string' ? request.body.clientName.slice(0, 128) : 'Unknown';
@@ -113,6 +115,14 @@ export async function pairingRoutes(fastify: FastifyInstance, opts: PairingOpts)
       clientId,
       boxInfo: { name: boxName, id: boxId, version: '1.0.0' },
     };
+  });
+
+  // DEV ONLY: query current pairing code without checking logs
+  fastify.get('/pair/debug-code', async (_request, reply) => {
+    if (!activeSession || activeSession.expiresAt < Date.now()) {
+      return reply.code(404).send({ error: 'NO_SESSION', message: 'No active pairing session' });
+    }
+    return { code: activeSession.code, expiresIn: Math.ceil((activeSession.expiresAt - Date.now()) / 1000) };
   });
 
   // Auth required for unpair

@@ -12,6 +12,7 @@
 #   box-system/pnpm-lock.yaml           - 锁文件
 #   box-system/src/backend/             - 后端源码 (不含 node_modules/data/.env/dist)
 #   box-system/src/frontend/            - 前端源码 (不含 node_modules/dist)
+#   box-system/src/box-daemon/          - 盒子守护服务 (不含 node_modules/data/dist)
 #   box-system/assets/vscode-server/    - VS Code Server 资源
 ###############################################################################
 
@@ -54,6 +55,7 @@ for required_file in \
     "$PROJECT_ROOT/pnpm-lock.yaml" \
     "$PROJECT_ROOT/src/backend/package.json" \
     "$PROJECT_ROOT/src/frontend/package.json" \
+    "$PROJECT_ROOT/src/box-daemon/package.json" \
     "$SCRIPT_DIR/install.sh"; do
     if [[ ! -f "$required_file" ]]; then
         error "缺少必要文件: $required_file"
@@ -96,6 +98,16 @@ tar cf - \
     --exclude='node_modules' \
     --exclude='dist' \
     . | tar xf - -C "$STAGING_PKG/box-system/src/frontend/"
+
+# 复制 box-daemon 源码（排除 node_modules、data、dist）
+info "复制 box-daemon 源码..."
+mkdir -p "$STAGING_PKG/box-system/src/box-daemon"
+cd "$PROJECT_ROOT/src/box-daemon"
+tar cf - \
+    --exclude='node_modules' \
+    --exclude='data' \
+    --exclude='dist' \
+    . | tar xf - -C "$STAGING_PKG/box-system/src/box-daemon/"
 
 # 复制 VS Code Server 资源
 if [[ -d "$PROJECT_ROOT/assets/vscode-server" ]]; then

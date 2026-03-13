@@ -73,6 +73,16 @@ export const ErrorCode = {
 
 export type ErrorCodeType = (typeof ErrorCode)[keyof typeof ErrorCode];
 
+/** Cloud connection configuration (optional) */
+export interface CloudConfig {
+  wsUrl: string;
+  boxId: string;
+  version: string;
+  heartbeatInterval: number;
+  heartbeatTimeout: number;
+  commandTimeout: number;
+}
+
 /** Daemon configuration */
 export interface DaemonConfig {
   port: number;
@@ -83,4 +93,5 @@ export interface DaemonConfig {
   dbPath: string;
   backendUrl: string;
   backendWsUrl: string;
+  cloud?: CloudConfig;
 }

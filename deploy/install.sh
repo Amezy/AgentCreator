@@ -43,6 +43,8 @@ readonly USER_GROUP="aibox"
 readonly ADMIN_GROUP="aibox-admin"
 readonly BACKEND_PORT=3010
 readonly WS_PORT=3011
+readonly DAEMON_PORT=3002
+readonly DAEMON_SERVICE_NAME="aibox-box-daemon"
 
 # ---------------------------------------------------------------------------
 # 颜色输出
@@ -286,7 +288,7 @@ step "第 8/10 步: 安装依赖并构建项目"
 info "安装 npm 依赖 (pnpm install) ..."
 cd "$INSTALL_DIR"
 # 以 root 装完依赖再 chown；--frozen-lockfile 确保锁文件一致
-pnpm install --frozen-lockfile 2>&1 | tail -10
+CI=true pnpm install --frozen-lockfile 2>&1 | tail -10
 # 确保原生模块已编译（better-sqlite3, authenticate-pam）
 if [[ ! -f "$INSTALL_DIR/src/backend/node_modules/better-sqlite3/build/Release/better_sqlite3.node" ]]; then
     warn "原生模块未编译，重新构建..."
@@ -307,6 +309,9 @@ if [[ ! -f "$INSTALL_DIR/src/backend/dist/server.js" ]]; then
 fi
 if [[ ! -f "$INSTALL_DIR/src/frontend/dist/index.html" ]]; then
     error "前端构建失败: 未找到 dist/index.html"
+fi
+if [[ ! -f "$INSTALL_DIR/src/box-daemon/dist/index.js" ]]; then
+    error "box-daemon 构建失败: 未找到 dist/index.js"
 fi
 success "构建产物验证通过"
 
@@ -407,6 +412,66 @@ if systemctl is-active --quiet "$SERVICE_NAME"; then
 else
     warn "服务启动可能有延迟，请检查: systemctl status ${SERVICE_NAME}"
     journalctl -u "$SERVICE_NAME" -n 20 --no-pager 2>/dev/null || true
+fi
+
+###############################################################################
+# 第 11 步: 配置 box-daemon systemd 服务（端口 3002）
+###############################################################################
+step "第 11 步: 配置 box-daemon 服务"
+
+# 生成 box-daemon JWT_SECRET（复用 backend 的或单独生成）
+DAEMON_JWT_SECRET="$(openssl rand -base64 32)"
+
+cat > "/etc/systemd/system/${DAEMON_SERVICE_NAME}.service" << DAEMON_EOF
+[Unit]
+Description=AI-BOX Box Daemon - Device discovery, pairing, cloud gateway
+Documentation=https://code.iflytek.com/ZHBG_ZS_YFB/ZS_AIPC/AI-Box
+After=network.target
+Before=${SERVICE_NAME}.service
+
+[Service]
+Type=simple
+User=${SERVICE_USER}
+Group=${SERVICE_GROUP}
+WorkingDirectory=${INSTALL_DIR}/src/box-daemon
+ExecStart=${NODE_BIN} dist/index.js
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# 环境变量
+Environment=NODE_ENV=production
+Environment=BOX_DAEMON_PORT=${DAEMON_PORT}
+Environment=BOX_DAEMON_HOST=0.0.0.0
+Environment=BOX_DAEMON_JWT_SECRET=${DAEMON_JWT_SECRET}
+Environment=BOX_NAME=AIBOX
+Environment=BOX_BACKEND_URL=http://localhost:${BACKEND_PORT}
+Environment=BOX_BACKEND_WS_URL=ws://localhost:${WS_PORT}
+# 云端连接通过配置文件管理: ${INSTALL_DIR}/src/box-daemon/data/cloud.json
+# 环境变量 CLOUD_WS_URL 可覆盖配置文件
+
+# 安全配置
+NoNewPrivileges=false
+ProtectSystem=false
+
+[Install]
+WantedBy=multi-user.target
+DAEMON_EOF
+
+systemctl daemon-reload
+
+info "启动 ${DAEMON_SERVICE_NAME} 服务..."
+systemctl restart "$DAEMON_SERVICE_NAME"
+systemctl enable "$DAEMON_SERVICE_NAME" > /dev/null 2>&1
+
+sleep 2
+
+if systemctl is-active --quiet "$DAEMON_SERVICE_NAME"; then
+    success "服务 ${DAEMON_SERVICE_NAME} 已启动 (端口 ${DAEMON_PORT})"
+else
+    warn "box-daemon 启动可能有延迟，请检查: systemctl status ${DAEMON_SERVICE_NAME}"
+    journalctl -u "$DAEMON_SERVICE_NAME" -n 10 --no-pager 2>/dev/null || true
 fi
 
 ###############################################################################
