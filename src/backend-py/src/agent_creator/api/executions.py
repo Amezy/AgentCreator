@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from agent_creator.db.connection import get_db
 from agent_creator.models.schemas import ApiResponse
+from agent_creator.services.context_manager import context_manager
 from agent_creator.services.execution_service import execution_service
 
 router = APIRouter()
@@ -75,10 +76,9 @@ async def compact_execution(
     db: Annotated[aiosqlite.Connection, Depends(get_db)],
 ):
     """Manually trigger context compaction for a running execution."""
-    execution = await execution_service.get_execution(db, execution_id)
-    if execution is None:
-        raise HTTPException(status_code=404, detail="Execution not found")
-    result = await execution_service.compact_context(db, execution_id)
+    result = await context_manager.manual_compact(execution_id, db=db)
+    if "error" in result:
+        raise HTTPException(status_code=404, detail=result["error"])
     return ApiResponse(success=True, data=result)
 
 
@@ -88,7 +88,7 @@ async def get_context_status(
     db: Annotated[aiosqlite.Connection, Depends(get_db)],
 ):
     """Get context usage status for a running execution."""
-    result = await execution_service.get_context_status(db, execution_id)
-    if result is None:
-        raise HTTPException(status_code=404, detail="Execution not found")
+    result = await context_manager.get_context_status(execution_id, db=db)
+    if "error" in result:
+        raise HTTPException(status_code=404, detail=result["error"])
     return ApiResponse(success=True, data=result)

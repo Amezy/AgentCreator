@@ -18,6 +18,7 @@ from agent_creator.api import (
     teams,
     workflows,
 )
+from agent_creator.api import persona_memory as persona_memory_api
 
 api_router = APIRouter()
 
@@ -38,6 +39,7 @@ api_router.include_router(mcp_connections.router, prefix="/mcp-connections", tag
 api_router.include_router(market.router, prefix="/market", tags=["market"])
 api_router.include_router(positions.router, prefix="/positions", tags=["positions"])
 api_router.include_router(personas.router, prefix="/personas", tags=["personas"])
+api_router.include_router(persona_memory_api.router, prefix="/personas", tags=["persona-memory"])
 api_router.include_router(
     persona_templates.router, prefix="/persona-templates", tags=["persona-templates"]
 )
