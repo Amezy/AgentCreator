@@ -1,4 +1,7 @@
 import { spawn, ChildProcess } from 'child_process';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
 import { logProcessEvent } from './db';
 import { ManagedProcess, ProcessState } from './types';
 
@@ -11,6 +14,37 @@ interface ProcessEntry {
 
 const processes = new Map<string, ProcessEntry>();
 const healthTimers = new Map<string, NodeJS.Timeout>();
+const PID_DIR = path.join(os.tmpdir(), 'aibox-pids');
+
+function ensurePidDir(): void {
+  if (!fs.existsSync(PID_DIR)) fs.mkdirSync(PID_DIR, { recursive: true });
+}
+
+function writePidFile(name: string, pid: number): void {
+  ensurePidDir();
+  fs.writeFileSync(path.join(PID_DIR, `${name}.pid`), String(pid));
+}
+
+function removePidFile(name: string): void {
+  try { fs.unlinkSync(path.join(PID_DIR, `${name}.pid`)); } catch { /* already gone */ }
+}
+
+/** Kill orphan processes from a previous crash using saved PID files */
+export function cleanupOrphanProcesses(): void {
+  ensurePidDir();
+  let files: string[];
+  try { files = fs.readdirSync(PID_DIR).filter(f => f.endsWith('.pid')); } catch { return; }
+  for (const file of files) {
+    try {
+      const pid = parseInt(fs.readFileSync(path.join(PID_DIR, file), 'utf-8').trim(), 10);
+      if (!isNaN(pid)) {
+        process.kill(pid, 'SIGTERM');
+        logProcessEvent({ process: file.replace('.pid', ''), event: 'orphan_killed', message: `Killed orphan PID ${pid}` });
+      }
+    } catch { /* process already gone */ }
+    try { fs.unlinkSync(path.join(PID_DIR, file)); } catch { /* ignore */ }
+  }
+}
 
 /** Reset all state — for testing only */
 export function _resetProcessGuard(): void {
@@ -53,6 +87,7 @@ export function startProcess(name: string): void {
   entry.state.pid = child.pid;
   entry.state.uptime = Date.now();
 
+  if (child.pid) writePidFile(name, child.pid);
   logProcessEvent({ process: name, event: 'started', message: `PID ${child.pid}` });
 
   child.stdout?.on('data', (data) => {
@@ -64,6 +99,7 @@ export function startProcess(name: string): void {
   });
 
   child.on('exit', (code, signal) => {
+    removePidFile(name);
     entry.state.status = 'crashed';
     entry.state.pid = undefined;
     entry.state.lastCrash = Date.now();
@@ -112,7 +148,36 @@ export function stopAllProcesses(): void {
     if (entry.child) {
       entry.child.removeAllListeners();
       entry.child.kill('SIGTERM');
+      removePidFile(name);
     }
   }
   healthTimers.clear();
+}
+
+/** Stop all processes and wait for them to exit (with timeout) */
+export async function stopAllProcessesGracefully(timeoutMs = 5000): Promise<void> {
+  const promises: Promise<void>[] = [];
+  for (const [name, entry] of processes) {
+    const timer = healthTimers.get(name);
+    if (timer) clearInterval(timer);
+    if (entry.child && entry.child.exitCode === null) {
+      promises.push(new Promise<void>((resolve) => {
+        const forceKill = setTimeout(() => {
+          entry.child?.kill('SIGKILL');
+          removePidFile(name);
+          resolve();
+        }, timeoutMs);
+        entry.child!.once('exit', () => {
+          clearTimeout(forceKill);
+          removePidFile(name);
+          resolve();
+        });
+        entry.child!.removeAllListeners('exit');
+        entry.child!.on('exit', () => { /* handled above */ });
+        entry.child!.kill('SIGTERM');
+      }));
+    }
+  }
+  healthTimers.clear();
+  await Promise.all(promises);
 }

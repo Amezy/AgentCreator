@@ -33,6 +33,11 @@ export async function pairingRoutes(fastify: FastifyInstance, opts: PairingOpts)
   const { jwtSecret, boxId, boxName, onPairingRequest, onPairingSuccess } = opts;
 
   fastify.post<{ Body: { clientName: string } }>('/pair/request', async (request, reply) => {
+    // Validate request body
+    if (!request.body || typeof request.body !== 'object') {
+      return reply.code(400).send({ error: 'INVALID_REQUEST', message: 'Request body is required' });
+    }
+
     if (Date.now() < lockUntil) {
       const waitSec = Math.ceil((lockUntil - Date.now()) / 1000);
       return reply.code(423).send({ error: ErrorCode.PAIRING_LOCKED, message: `Locked. Retry in ${waitSec}s` });
@@ -42,7 +47,7 @@ export async function pairingRoutes(fastify: FastifyInstance, opts: PairingOpts)
       return reply.code(409).send({ error: 'PAIRING_ACTIVE', message: 'A pairing session is already active' });
     }
 
-    const clientName = request.body?.clientName || 'Unknown';
+    const clientName = typeof request.body.clientName === 'string' ? request.body.clientName.slice(0, 128) : 'Unknown';
     const code = generateCode();
     const pairingId = generateId();
 
@@ -66,7 +71,13 @@ export async function pairingRoutes(fastify: FastifyInstance, opts: PairingOpts)
       return reply.code(423).send({ error: ErrorCode.PAIRING_LOCKED, message: `Locked. Retry in ${waitSec}s` });
     }
 
-    const { pairingId, code } = request.body ?? {};
+    if (!request.body || typeof request.body !== 'object') {
+      return reply.code(400).send({ error: 'INVALID_REQUEST', message: 'Request body is required' });
+    }
+    const { pairingId, code } = request.body;
+    if (typeof pairingId !== 'string' || typeof code !== 'string' || !/^\d{6}$/.test(code)) {
+      return reply.code(400).send({ error: 'INVALID_REQUEST', message: 'pairingId (string) and code (6 digits) are required' });
+    }
 
     if (!activeSession || activeSession.pairingId !== pairingId) {
       return reply.code(400).send({ error: 'INVALID_SESSION', message: 'No matching pairing session' });

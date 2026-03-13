@@ -4,7 +4,7 @@ import { FastifyRequest, FastifyReply } from 'fastify';
 import { getPairedClient, updateClientTokenHashWithGrace } from './db';
 import { ErrorCode } from './types';
 
-const TOKEN_EXPIRY = '90d';
+const TOKEN_EXPIRY_SECONDS = 90 * 24 * 60 * 60; // 90 days in seconds
 const BCRYPT_ROUNDS = 10;
 
 export interface TokenPayload {
@@ -17,13 +17,13 @@ export interface TokenPayload {
 export function signToken(
   payload: { clientId: string; boxId: string },
   secret: string,
-  expiresIn: string = TOKEN_EXPIRY,
+  expiresIn: number = TOKEN_EXPIRY_SECONDS,
 ): string {
-  return jwt.sign(payload, secret, { expiresIn });
+  return jwt.sign(payload, secret, { algorithm: 'HS256', expiresIn });
 }
 
 export function verifyToken(token: string, secret: string): TokenPayload {
-  return jwt.verify(token, secret) as TokenPayload;
+  return jwt.verify(token, secret, { algorithms: ['HS256'] }) as TokenPayload;
 }
 
 export function hashToken(token: string): string {
