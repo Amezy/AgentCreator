@@ -294,3 +294,42 @@ CREATE TABLE IF NOT EXISTS skill_templates (
 );
 
 CREATE INDEX IF NOT EXISTS idx_skill_templates_category ON skill_templates(category);
+
+-- 工作流执行日志索引
+CREATE TABLE IF NOT EXISTS execution_logs (
+    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+    workflow_id TEXT REFERENCES workflows(id),
+    persona_id TEXT REFERENCES personas(id),
+    task_title TEXT NOT NULL,
+    status TEXT DEFAULT 'running' CHECK(status IN ('running', 'paused', 'completed', 'failed')),
+    total_steps INTEGER DEFAULT 0,
+    completed_steps INTEGER DEFAULT 0,
+    total_tokens_used INTEGER DEFAULT 0,
+    log_dir TEXT NOT NULL,
+    started_at TEXT DEFAULT (datetime('now')),
+    completed_at TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+);
+
+-- 步骤级执行日志
+CREATE TABLE IF NOT EXISTS execution_step_logs (
+    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+    execution_id TEXT NOT NULL REFERENCES execution_logs(id) ON DELETE CASCADE,
+    step_number INTEGER NOT NULL,
+    skill_id TEXT REFERENCES skills(id),
+    step_label TEXT NOT NULL,
+    status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'running', 'completed', 'failed')),
+    tokens_used INTEGER DEFAULT 0,
+    tool_calls_count INTEGER DEFAULT 0,
+    summary_json TEXT,
+    log_file TEXT,
+    compact_count INTEGER DEFAULT 0,
+    started_at TEXT,
+    completed_at TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_execution_logs_workflow ON execution_logs(workflow_id);
+CREATE INDEX IF NOT EXISTS idx_execution_logs_persona ON execution_logs(persona_id);
+CREATE INDEX IF NOT EXISTS idx_execution_logs_status ON execution_logs(status);
+CREATE INDEX IF NOT EXISTS idx_execution_step_logs_execution ON execution_step_logs(execution_id);

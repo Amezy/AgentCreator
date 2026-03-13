@@ -332,6 +332,9 @@ async def run_migrations(db: aiosqlite.Connection) -> None:
         else:
             logger.debug("Seed data already present, skipping seed.sql.")
 
+    # Workflows: add persona_id for persona-level workflows
+    await _add_column_if_missing(db, "workflows", "persona_id", "TEXT")
+
     # Seed skill templates
     await _seed_skill_templates(db)
 
