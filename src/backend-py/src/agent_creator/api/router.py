@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from agent_creator.api import (
     conversations,
+    executions,
     market,
     mcp_connections,
     memories,
@@ -43,5 +44,6 @@ api_router.include_router(
 api_router.include_router(teams.router, prefix="/teams", tags=["teams"])
 api_router.include_router(workflows.router, prefix="/workflows", tags=["workflows"])
 api_router.include_router(conversations.router, prefix="/conversations", tags=["conversations"])
+api_router.include_router(executions.router, prefix="/executions", tags=["executions"])
 api_router.include_router(memories.router, prefix="/memories", tags=["memories"])
 api_router.include_router(monitor.router, prefix="/monitor", tags=["monitor"])
