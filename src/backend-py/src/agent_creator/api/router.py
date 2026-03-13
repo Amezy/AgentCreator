@@ -12,6 +12,7 @@ from agent_creator.api import (
     persona_templates,
     personas,
     positions,
+    skill_templates,
     skills,
     teams,
     workflows,
@@ -31,6 +32,7 @@ async def health_check() -> dict:
 
 api_router.include_router(models.router, prefix="/models", tags=["models"])
 api_router.include_router(skills.router, prefix="/skills", tags=["skills"])
+api_router.include_router(skill_templates.router, prefix="/skill-templates", tags=["skill-templates"])
 api_router.include_router(mcp_connections.router, prefix="/mcp-connections", tags=["mcp"])
 api_router.include_router(market.router, prefix="/market", tags=["market"])
 api_router.include_router(positions.router, prefix="/positions", tags=["positions"])
