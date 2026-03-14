@@ -1,6 +1,6 @@
 {
   "enabled": true,
-  "wsUrl": "ws://10.10.142.105:3100/ws/v1/box",
+  "wsUrl": "ws://121.199.63.30:9091/ws/v1/box",
   "heartbeatInterval": 30000,
   "heartbeatTimeout": 90000,
   "commandTimeout": 30000

@@ -52,7 +52,7 @@ function loadCloudConfig(boxId: string): CloudConfig | undefined {
   }
 
   return {
-    wsUrl: (fileConfig.wsUrl as string) || 'ws://10.10.142.105:3100/ws/v1/box',
+    wsUrl: (fileConfig.wsUrl as string) || 'ws://121.199.63.30:9091/ws/v1/box',
     boxId,
     version: VERSION,
     heartbeatInterval: (fileConfig.heartbeatInterval as number) || 30000,
